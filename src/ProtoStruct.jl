@@ -1,9 +1,14 @@
 macro proto( name )
-    quote
+    ex = quote
         struct $name{ NT<:NamedTuple{Syms,T} where {Syms,T} }
-            proerties::NT
+            properties::NT
         end # struct
 
-        $(esc(name))(;kwargs...) = $(esc(name))(kwargs.data)
+        $name(;kwargs...) = $name(kwargs.data)
+
+        function Base.getproperty( o::$name, s::Symbol )
+            return getproperty( getfield(o,:properties), s )
+        end # function
     end # quote
+    esc(ex)
 end # macro
