@@ -14,3 +14,5 @@ using ProtoStructs
 a = DevType(a=1, b=2.0, c="3")
 b = DevType(d=complex(1), e=true)
 ```
+
+It is actually just a typed `NamedTuple`.
