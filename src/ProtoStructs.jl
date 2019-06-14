@@ -1,5 +1,7 @@
 module ProtoStructs
 
-greet() = print("Hello World!")
+export @proto
+
+include("ProtoStruct.jl")
 
 end # module
