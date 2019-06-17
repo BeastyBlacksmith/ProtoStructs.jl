@@ -13,3 +13,7 @@ end # testset
     @test test_me.B == "2"
     @test test_me.C == complex(1)
 end # testset
+
+@testset "Properties" begin
+    @test propertynames( test_me ) == (:A, :B, :C)
+end # testset
