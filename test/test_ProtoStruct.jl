@@ -5,6 +5,7 @@ test_me = @test_nowarn TestMe(A=1, B="2", C=complex(1))
 
 @testset "Construction" begin
     @test TestMe((A=1,)) isa TestMe
+    @test TestMe(A=1) == TestMe((A=1,))
 end # testset
 
 @testset "Access" begin
