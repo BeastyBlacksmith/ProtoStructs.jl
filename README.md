@@ -16,3 +16,4 @@ b = DevType(d=complex(1), e=true)
 ```
 
 It is actually just a typed `NamedTuple`.
+
