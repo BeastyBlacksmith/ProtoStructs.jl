@@ -4,11 +4,21 @@ macro proto( expr )
     end
 
     name = expr.args[2]
+    type_parameters = nothing
     if !(name isa Symbol)
+        type_parameters = name.args[2:end]
         name = name.args[1]
+        type_parameter_names = map(type_parameters) do t
+                                    if t isa Symbol
+                                        t
+                                    else
+                                        t.args[1]
+                                    end
+                                end
     end
 
-    field_info = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
+    fields = expr.args[3].args[2:2:length(expr.args[3].args)]
+    field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
                         else
@@ -16,8 +26,7 @@ macro proto( expr )
                         end
                     end
     field_names = Tuple(getindex.(field_info, 1))
-    # Symbol for Int -> Int64/Int32
-    field_types = quote Tuple{$(Symbol.(getindex.(field_info, 2))...)} end
+    field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
     
     ex = quote
             if !@isdefined $name
@@ -25,8 +34,12 @@ macro proto( expr )
                     properties::NT
                 end # struct
             end # if
-        
-            $name(args...) = $name(NamedTuple{$field_names, $field_types}(args))
+            
+            if $(type_parameters) === nothing
+                $name(args...) = $name(NamedTuple{$field_names, $field_types}(args))
+            else
+                $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),)))
+            end
             $name(;kwargs...) = $name(kwargs.data)
 
             function Base.getproperty( o::$name, s::Symbol )
@@ -39,5 +52,8 @@ macro proto( expr )
         end # quote
     esc(ex)
 end # macro
+
+
+
 
 

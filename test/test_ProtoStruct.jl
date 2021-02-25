@@ -1,12 +1,13 @@
 using ProtoStructs, Test
 
-@proto struct TestMe{T}
+@proto struct TestMe{T, V <: Real}
     A::Int
     B
     C::T
+    D::V
 end
-test_me = @test_nowarn TestMe(1, "2", complex(1))
-test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1))
+test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
+test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
     @test TestMe((A=1,)) isa TestMe
@@ -20,18 +21,17 @@ end # testset
 end # testset
 
 @testset "Properties" begin
-    @test propertynames( test_me ) == (:A, :B, :C)
+    @test propertynames( test_me ) == (:A, :B, :C, :D)
 end # testset
 
-@proto struct TestMe{T}
+@proto struct TestMe{T, V <: Real}
     A::Int
     B
-    C::T
+    C::V
     D::T
 end
-
-test_me = @test_nowarn TestMe(1, "2", complex(1))
-test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1))
+test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
+test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Redefinition" begin
     @test TestMe((A=1,)) isa TestMe
