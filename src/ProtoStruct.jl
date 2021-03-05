@@ -51,6 +51,10 @@ macro proto( expr )
                 struct $name{NT<:NamedTuple}
                     properties::NT
                 end # struct
+            else
+                the_methods = collect(methods($name))
+                Base.delete_method(the_methods[1])
+                Base.delete_method(the_methods[3])
             end # if
             
             if $(type_parameters) === nothing
