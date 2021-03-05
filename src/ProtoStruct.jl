@@ -23,12 +23,9 @@ macro proto( expr )
                                     end
                                 end
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
-        @show type_parameters
-        @show type_parameter_types
     end
 
     fields = expr.args[3].args[2:2:length(expr.args[3].args)]
-    @show fields
     field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
