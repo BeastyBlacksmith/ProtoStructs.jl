@@ -15,9 +15,20 @@ macro proto( expr )
                                         t.args[1]
                                     end
                                 end
+        type_parameter_types = map(type_parameters) do t
+                                    if t isa Symbol
+                                        :Any
+                                    else
+                                        t.args[2]
+                                    end
+                                end
+        type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
+        @show type_parameters
+        @show type_parameter_types
     end
 
     fields = expr.args[3].args[2:2:length(expr.args[3].args)]
+    @show fields
     field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
@@ -27,6 +38,13 @@ macro proto( expr )
                     end
     field_names = Tuple(getindex.(field_info, 1))
     field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
+    field_subtype_info = map(getindex.(field_info, 2)) do ft
+        if ft in type_parameter_names
+            return type_parameter_types[ft]
+        else
+            return ft
+        end
+    end
     
     ex = quote
             if !@isdefined $name
@@ -40,7 +58,22 @@ macro proto( expr )
             else
                 $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),)))
             end
-            $name(;kwargs...) = $name(kwargs.data)
+            
+            function $name(;kwargs...)
+                if length(kwargs) != $(length(fields))
+                    throw(MethodError("Too few or too many fields."))
+                end
+                for kw in kwargs
+                    kw_ind = findfirst(==(kw.first), $field_names)
+                    if kw_ind === nothing
+                        throw(MethodError("Wrong field $(kw.first)"))
+                    end
+                    if !(typeof(kw.second) <: getindex(tuple($(field_subtype_info...)), kw_ind))
+                        throw(MethodError("Expeceted type $(getindex($field_types, kw_ind)) for field $(kw.first). Got $(typeof(kw.second))"))
+                    end
+                end
+                $name(kwargs.data)
+            end
 
             function Base.getproperty( o::$name, s::Symbol )
                 return getproperty( getfield(o, :properties), s )
@@ -52,6 +85,7 @@ macro proto( expr )
         end # quote
     esc(ex)
 end # macro
+
 
 
 

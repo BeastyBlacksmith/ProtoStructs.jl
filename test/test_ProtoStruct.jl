@@ -11,7 +11,7 @@ test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
     @test TestMe((A=1,)) isa TestMe
-    @test TestMe(A=1) == TestMe((A=1,))
+    @test_throws MethodError TestMe(A=1)
 end # testset
 
 @testset "Access" begin
@@ -27,13 +27,14 @@ end # testset
 @proto struct TestMe{T, V <: Real}
     A::Int
     B
-    C::V
-    D::T
+    C::T
+    D::V
+    E::String
 end
-test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
-test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
+test_me2 = @test_nowarn TestMe(1, "2", complex(1), 5, "tadaa")
+test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
+
 
 @testset "Redefinition" begin
-    @test TestMe((A=1,)) isa TestMe
-    @test TestMe(A=1) == TestMe((A=1,))
+
 end # testset
