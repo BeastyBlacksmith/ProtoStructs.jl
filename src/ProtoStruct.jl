@@ -37,7 +37,6 @@ macro proto( expr )
                         field
                     end
                 end
-    @show fields
     field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
