@@ -1,11 +1,17 @@
 using ProtoStructs, Test
 
-@proto TestMe
-test_me = @test_nowarn TestMe(A=1, B="2", C=complex(1))
+@proto struct TestMe{T, V <: Real}
+    A::Int
+    B
+    C::T
+    D::V
+end
+test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
+test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
     @test TestMe((A=1,)) isa TestMe
-    @test TestMe(A=1) == TestMe((A=1,))
+    @test_throws UndefKeywordError TestMe(A=1)
 end # testset
 
 @testset "Access" begin
@@ -15,5 +21,38 @@ end # testset
 end # testset
 
 @testset "Properties" begin
-    @test propertynames( test_me ) == (:A, :B, :C)
+    @test propertynames( test_me ) == (:A, :B, :C, :D)
 end # testset
+
+@proto struct TestMe{T, V <: Real}
+    A::Int
+    B
+    C::T
+    D::V
+    E::String
+end
+test_me2 = @test_nowarn TestMe(1, "2", complex(1), 5, "tadaa")
+test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
+
+
+@testset "Redefinition" begin
+    @test length(methods(TestMe)) == 3
+end # testset
+
+ProtoStructs.@proto struct TestKw{T, V <: Real}
+    A::Int = 1
+    B = :no
+    C::T = nothing
+    D::V
+    E::String
+end
+
+@testset "kwdef" begin
+    tw = TestKw(D = 1.2, E = "yepp")
+    @test tw isa TestKw
+    @test tw.A == 1
+    @test tw.B == :no
+    @test tw.C === nothing
+    @test tw.D == 1.2
+    @test tw.E == "yepp"
+end
