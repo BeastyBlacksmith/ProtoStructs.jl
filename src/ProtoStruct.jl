@@ -5,6 +5,8 @@ macro proto( expr )
 
     name = expr.args[2]
     type_parameters = nothing
+    type_parameter_names = []
+    type_parameter_types = []
     if !(name isa Symbol)
         type_parameters = name.args[2:end]
         name = name.args[1]
@@ -25,10 +27,22 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
-    fields = expr.args[3].args[2:2:length(expr.args[3].args)]
+    fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
+                    if field isa Symbol
+                        return field
+                    end
+                    if field.head == :(=)
+                        field.args[1]
+                    else
+                        field
+                    end
+                end
+    @show fields
     field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
+#                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
+#                            (field.args[1].args[1], field.args[1].args[2])
                         else
                             (field.args[1], field.args[2])
                         end
@@ -42,7 +56,19 @@ macro proto( expr )
             return ft
         end
     end
-    
+
+    params_ex = Expr(:parameters)
+    call_args = Any[]
+
+    Base._kwdef!(expr.args[3], params_ex.args, call_args)
+
+    # remove escapes
+    params_ex.args = map(params_ex.args) do ex
+        if ex isa Symbol return ex end
+        ex.args[2] = ex.args[2].args[1]
+        ex
+    end
+
     ex = quote
             if !@isdefined $name
                 struct $name{NT<:NamedTuple}
@@ -54,26 +80,16 @@ macro proto( expr )
                 Base.delete_method(the_methods[3])
             end # if
             
-            if $(type_parameters) === nothing
-                $name(args...) = $name(NamedTuple{$field_names, $field_types}(args))
-            else
-                $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),)))
-            end
+            $(
+                if type_parameters === nothing
+                    :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(args)) )
+                else
+                    :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),))) )
+                end
+            )
             
-            function $name(;kwargs...)
-                if length(kwargs) != $(length(fields))
-                    throw(MethodError("Too few or too many fields."))
-                end
-                for kw in kwargs
-                    kw_ind = findfirst(==(kw.first), $field_names)
-                    if kw_ind === nothing
-                        throw(MethodError("Wrong field $(kw.first)"))
-                    end
-                    if !(typeof(kw.second) <: getindex(tuple($(field_subtype_info...)), kw_ind))
-                        throw(MethodError("Expeceted type $(getindex($field_types, kw_ind)) for field $(kw.first). Got $(typeof(kw.second))"))
-                    end
-                end
-                $name(kwargs.data)
+            function $name($params_ex)
+                $name($(call_args...))
             end
 
             function Base.getproperty( o::$name, s::Symbol )
@@ -84,11 +100,7 @@ macro proto( expr )
                 return propertynames( getfield(o, :properties) )
             end # function
         end # quote
-    esc(ex)
+    ex |> esc
 end # macro
-
-
-
-
 
 

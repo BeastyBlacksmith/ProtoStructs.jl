@@ -11,7 +11,7 @@ test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
     @test TestMe((A=1,)) isa TestMe
-    @test_throws MethodError TestMe(A=1)
+    @test_throws UndefKeywordError TestMe(A=1)
 end # testset
 
 @testset "Access" begin
@@ -38,3 +38,21 @@ test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
 @testset "Redefinition" begin
     @test length(methods(TestMe)) == 3
 end # testset
+
+ProtoStructs.@proto struct TestKw{T, V <: Real}
+    A::Int = 1
+    B = :no
+    C::T = nothing
+    D::V
+    E::String
+end
+
+@testset "kwdef" begin
+    tw = TestKw(D = 1.2, E = "yepp")
+    @test tw isa TestKw
+    @test tw.A == 1
+    @test tw.B == :no
+    @test tw.C === nothing
+    @test tw.D == 1.2
+    @test tw.E == "yepp"
+end
