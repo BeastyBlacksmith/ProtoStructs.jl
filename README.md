@@ -23,3 +23,7 @@ c = DevType(2, 4.0, nothing)
 ```
 
 Redefine at will, but please remove the `@proto` macro after developing.
+
+---
+
+There is also [Redef](https://github.com/FedericoStra/RedefStructs.jl)
