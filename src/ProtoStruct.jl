@@ -2,6 +2,7 @@ macro proto( expr )
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
+    ismutable = expr.args[1]
 
     name = expr.args[2]
     type_parameters = nothing
@@ -68,37 +69,76 @@ macro proto( expr )
         ex
     end
 
-    ex = quote
-            if !@isdefined $name
-                struct $name{NT<:NamedTuple}
-                    properties::NT
-                end # struct
-            else
-                the_methods = collect(methods($name))
-                Base.delete_method(the_methods[1])
-                Base.delete_method(the_methods[3])
-            end # if
-            
-            $(
-                if type_parameters === nothing
-                    :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(args)) )
+    ex = if ismutable
+            quote
+                if !@isdefined $name
+                    struct $name{AD<:AbstractDict}
+                        properties::AD
+                    end # struct
                 else
-                    :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),))) )
+                    the_methods = collect(methods($name))
+                    Base.delete_method(the_methods[1])
+                    Base.delete_method(the_methods[3])
+                end # if
+
+                $(
+                    if type_parameters === nothing
+                        :( $name(args...) = $name(Dict{Symbol,Any}(zip($field_names, args))) )
+                    else
+                        :( $name($(fields...)) where {$(type_parameters...)} = $name(Dict{Symbol,Any}(zip($field_names, ($(field_names...),)))) )
+                    end
+                )
+
+                function $name($params_ex)
+                    $name($(call_args...))
                 end
-            )
-            
-            function $name($params_ex)
-                $name($(call_args...))
+
+                function Base.getproperty( o::$name, s::Symbol )
+                    return getindex( getfield(o, :properties), s)
+                end # function
+
+                function Base.setproperty!( o::$name, s::Symbol, v )
+                    dict = getfield(o, :properties)
+                    return haskey(dict, s) ? setindex!( dict, v, s) : error(string("type ", $name, " has no field ", s))
+                end # function
+
+                function Base.propertynames( o::$name )
+                    return Tuple(keys( getfield(o, :properties) ))
+                end # function
             end
+        else
+            quote
+                if !@isdefined $name
+                    struct $name{NT<:NamedTuple}
+                        properties::NT
+                    end # struct
+                else
+                    the_methods = collect(methods($name))
+                    Base.delete_method(the_methods[1])
+                    Base.delete_method(the_methods[3])
+                end # if
 
-            function Base.getproperty( o::$name, s::Symbol )
-                return getproperty( getfield(o, :properties), s )
-            end # function
+                $(
+                    if type_parameters === nothing
+                        :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(args)) )
+                    else
+                        :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),))) )
+                    end
+                )
 
-            function Base.propertynames( o::$name )
-                return propertynames( getfield(o, :properties) )
-            end # function
-        end # quote
+                function $name($params_ex)
+                    $name($(call_args...))
+                end
+
+                function Base.getproperty( o::$name, s::Symbol )
+                    return getproperty( getfield(o, :properties), s )
+                end # function
+
+                function Base.propertynames( o::$name )
+                    return propertynames( getfield(o, :properties) )
+                end # function
+            end # quote
+        end
     ex |> esc
 end # macro
 

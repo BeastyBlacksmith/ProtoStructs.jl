@@ -39,7 +39,7 @@ test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
     @test length(methods(TestMe)) == 3
 end # testset
 
-ProtoStructs.@proto struct TestKw{T, V <: Real}
+@proto struct TestKw{T, V <: Real}
     A::Int = 1
     B = :no
     C::T = nothing
@@ -55,4 +55,25 @@ end
     @test tw.C === nothing
     @test tw.D == 1.2
     @test tw.E == "yepp"
+end
+
+@proto mutable struct TestMutation{T, V <: Real}
+    A::Int = 1
+    B = :no
+    C::T = nothing
+    D::V
+    E::String
+end
+
+@testset "Mutation" begin
+    tm = @test_nowarn TestMutation(D = 1.2, E = "yepp")
+    tm.A = 2
+    tm.E = "nope"
+    @test_throws ErrorException tm.this = "is wrong"
+    @test tm isa TestMutation
+    @test tm.A == 2
+    @test tm.B == :no
+    @test tm.C === nothing
+    @test tm.D == 1.2
+    @test tm.E == "nope"
 end
