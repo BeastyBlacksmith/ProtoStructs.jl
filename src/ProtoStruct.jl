@@ -48,11 +48,7 @@ macro proto( expr )
 #                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
 #                            (field.args[1].args[1], field.args[1].args[2])
                         else
-                            if field.head == :const
-                                (field.args[1].args[1], field.args[1].args[2])
-                            else
-                                (field.args[1], field.args[2])
-                            end
+                            (field.args[1], field.args[2])
                         end
                     end
 
