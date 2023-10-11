@@ -58,8 +58,8 @@ end
 end
 
 @proto mutable struct TestMutation{T, V <: Real}
-    const A::Int = 1
-    B = :no
+    A::Int = 1
+    const B = :no
     C::T = nothing
     const D::V
     E::String
@@ -69,6 +69,7 @@ end
     tm = @test_nowarn TestMutation(D = 1.2, E = "yepp")
     tm.A = 2
     tm.E = "nope"
+    @test_throws ErrorException tm.B = :yes
     @test_throws ErrorException tm.this = "is wrong"
     @test tm isa TestMutation
     @test tm.A == 2
