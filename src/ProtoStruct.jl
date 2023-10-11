@@ -1,5 +1,5 @@
 macro proto( expr )
-    if (expr.head == :macrocall) & (expr.args[1] == Symbol("@kwdef"))
+    if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
         expr = expr.args[3]
     end
 
