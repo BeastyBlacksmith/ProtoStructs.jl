@@ -1,4 +1,10 @@
 macro proto( expr )
+
+    if expr.head == :macrocall
+        expr = quote $(expr.args[2:end]...) end
+        expr = expr.args[3]
+    end
+
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
