@@ -32,10 +32,13 @@ macro proto( expr )
                     if field isa Symbol
                         return field
                     end
+                    if field.head == :const
+                        field = field.args[1]
+                    end
                     if field.head == :(=)
-                        field.args[1]
+                        return field.args[1]
                     else
-                        field
+                        return field
                     end
                 end
 
@@ -52,6 +55,7 @@ macro proto( expr )
                             end
                         end
                     end
+
     field_names = Tuple(getindex.(field_info, 1))
     field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
     field_subtype_info = map(getindex.(field_info, 2)) do ft
