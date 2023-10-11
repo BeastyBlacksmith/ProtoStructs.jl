@@ -28,31 +28,37 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
+    const_fields = []
     fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
                     if field isa Symbol
+                        push!(const_fields, false)
                         return field
                     end
-                    if field.head == :const
+                    is_const = field.head == :const
+                    if is_const
                         field = field.args[1]
                     end
+                    push!(const_fields, is_const)
                     if field.head == :(=)
                         return field.args[1]
                     else
                         return field
                     end
                 end
-
+    i = 0
     field_info = map(fields) do field
-                        return if field isa Symbol
-                            (field, Any)
+                        i += 1
+                        if field isa Symbol
+                            return (field, Any, const_fields[i])
 #                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
 #                            (field.args[1].args[1], field.args[1].args[2])
                         else
-                            (field.args[1], field.args[2])
+                            return (field.args[1], field.args[2], const_fields[i])
                         end
                     end
 
     field_names = Tuple(getindex.(field_info, 1))
+    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
     field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
     field_subtype_info = map(getindex.(field_info, 2)) do ft
         if ft in type_parameter_names
@@ -103,6 +109,9 @@ macro proto( expr )
                 end # function
 
                 function Base.setproperty!( o::$name, s::Symbol, v )
+                    if s in $const_field_names
+                        error("const field ", s, " of type ", $name, " cannot be changed")
+                    end
                     dict = getfield(o, :properties)
                     return haskey(dict, s) ? setindex!( dict, v, s) : error(string("type ", $name, " has no field ", s))
                 end # function
@@ -146,3 +155,4 @@ macro proto( expr )
         end
     ex |> esc
 end # macro
+
