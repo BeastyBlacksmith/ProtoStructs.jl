@@ -38,13 +38,18 @@ macro proto( expr )
                         field
                     end
                 end
+
     field_info = map(fields) do field
                         return if field isa Symbol
                             (field, Any)
 #                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
 #                            (field.args[1].args[1], field.args[1].args[2])
                         else
-                            (field.args[1], field.args[2])
+                            if field.head == :const
+                                (field.args[1].args[1], field.args[1].args[2])
+                            else
+                                (field.args[1], field.args[2])
+                            end
                         end
                     end
     field_names = Tuple(getindex.(field_info, 1))
@@ -141,5 +146,3 @@ macro proto( expr )
         end
     ex |> esc
 end # macro
-
-
