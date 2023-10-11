@@ -57,6 +57,16 @@ end
     @test tw.E == "yepp"
 end
 
+@proto @kwdef struct TestMacroOutside
+    A::Int = 1
+end
+
+@testset "@kwdef macro outside" begin
+    tw = TestMacroOutside()
+    @test tw isa TestMacroOutside
+    @test tw.A == 1
+end
+
 @proto mutable struct TestMutation{T, V <: Real}
     A::Int = 1
     B = :no
