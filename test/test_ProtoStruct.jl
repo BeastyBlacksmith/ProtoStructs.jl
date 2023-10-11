@@ -58,10 +58,10 @@ end
 end
 
 @proto mutable struct TestMutation{T, V <: Real}
-    A::Int = 1
+    const A::Int = 1
     B = :no
     C::T = nothing
-    D::V
+    const D::V
     E::String
 end
 
