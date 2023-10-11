@@ -1,7 +1,6 @@
 macro proto( expr )
 
-    if expr.head == :macrocall
-        expr = quote $(expr.args[2:end]...) end
+    if (expr.head == :macrocall) & (expr.args[1] == Symbol("@kwdef"))
         expr = expr.args[3]
     end
 
@@ -147,5 +146,3 @@ macro proto( expr )
         end
     ex |> esc
 end # macro
-
-
