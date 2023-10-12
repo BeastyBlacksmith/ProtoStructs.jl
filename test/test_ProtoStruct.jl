@@ -67,7 +67,7 @@ end
     @test tm.F == 4 && tm.G == 2.0
     tm.F = 8
     @test tm.F == 8 && tm.G == 2.0
-    @test_throws ErrorException tm.F = "2"
+    @test_throws MethodError tm.F = "2"
     @test propertynames(tm) == (:F, :G)
 end
     
