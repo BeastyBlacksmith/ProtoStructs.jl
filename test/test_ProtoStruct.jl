@@ -57,7 +57,17 @@ end
     @test tw.E == "yepp"
 end
 
-@proto mutable struct TestMutation{T, V <: Real}
+@proto mutable struct TestMutation
+    F::Int
+end
+
+@testset "Mutation" begin
+    tm = @test_nowarn TestMutation(4)
+    tm.F = 8
+    @test_throws ErrorException a.F = "2"
+end
+    
+@proto mutable struct TestParametricMutation{T, V <: Real}
     A::Int = 1
     B = :no
     C::T = nothing
@@ -65,15 +75,15 @@ end
     E::String
 end
 
-@testset "Mutation" begin
-    tm = @test_nowarn TestMutation(D = 1.2, E = "yepp")
-    tm.A = 2
-    tm.E = "nope"
-    @test_throws ErrorException tm.this = "is wrong"
-    @test tm isa TestMutation
-    @test tm.A == 2
-    @test tm.B == :no
-    @test tm.C === nothing
-    @test tm.D == 1.2
-    @test tm.E == "nope"
+@testset "Parametric Mutation" begin
+    tpm = @test_nowarn TestParametricMutation(D = 1.2, E = "yepp")
+    tpm.A = 2
+    tpm.E = "nope"
+    @test_throws ErrorException tpm.this = "is wrong"
+    @test tpm isa TestParametricMutation
+    @test tpm.A == 2
+    @test tpm.B == :no
+    @test tpm.C === nothing
+    @test tpm.D == 1.2
+    @test tpm.E == "nope"
 end
