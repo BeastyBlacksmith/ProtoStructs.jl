@@ -49,7 +49,6 @@ macro proto( expr )
                     end
 
     field_names = Tuple(getindex.(field_info, 1))
-    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
     if ismutable
         field_types = :(Tuple{$((:(Base.RefValue{<:$x}) for x in getindex.(field_info, 2))...)})
         fields_with_ref = (:($x=Ref($x)) for x in field_names)
