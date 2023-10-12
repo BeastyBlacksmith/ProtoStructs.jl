@@ -28,27 +28,44 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
+    const_fields = []
     fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
                     if field isa Symbol
+                        push!(const_fields, false)
                         return field
                     end
+                    is_const = field.head == :const
+                    if is_const
+                        field = field.args[1]
+                    end
+                    push!(const_fields, is_const)
                     if field.head == :(=)
-                        field.args[1]
+                        return field.args[1]
                     else
-                        field
+                        return field
                     end
                 end
+    i = 0
     field_info = map(fields) do field
-                        return if field isa Symbol
-                            (field, Any)
+                        i += 1
+                        if field isa Symbol
+                            return (field, Any, const_fields[i])
 #                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
 #                            (field.args[1].args[1], field.args[1].args[2])
                         else
-                            (field.args[1], field.args[2])
+                            return (field.args[1], field.args[2], const_fields[i])
                         end
                     end
+
     field_names = Tuple(getindex.(field_info, 1))
-    field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
+    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
+    if ismutable
+        field_types = :(Tuple{$((:(Base.RefValue{<:$x}) for x in getindex.(field_info, 2))...)})
+        fields_with_ref = (:($x=Ref($x)) for x in field_names)
+    else
+        field_types = :(Tuple{$(getindex.(field_info, 2)...)})
+    end
+
     field_subtype_info = map(getindex.(field_info, 2)) do ft
         if ft in type_parameter_names
             return type_parameter_types[ft]
@@ -72,8 +89,8 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{AD<:AbstractDict}
-                        properties::AD
+                    struct $name{NT<:NamedTuple}
+                        properties::NT
                     end # struct
                 else
                     the_methods = collect(methods($name))
@@ -83,9 +100,9 @@ macro proto( expr )
 
                 $(
                     if type_parameters === nothing
-                        :( $name(args...) = $name(Dict{Symbol,Any}(zip($field_names, args))) )
+                        :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(Ref.(args))) )
                     else
-                        :( $name($(fields...)) where {$(type_parameters...)} = $name(Dict{Symbol,Any}(zip($field_names, ($(field_names...),)))) )
+                        :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))) )
                     end
                 )
 
@@ -94,16 +111,18 @@ macro proto( expr )
                 end
 
                 function Base.getproperty( o::$name, s::Symbol )
-                    return getindex( getfield(o, :properties), s)
-                end # function
+                    return getindex(getfield(o, :properties), s)[]
+                end
 
-                function Base.setproperty!( o::$name, s::Symbol, v )
-                    dict = getfield(o, :properties)
-                    return haskey(dict, s) ? setindex!( dict, v, s) : error(string("type ", $name, " has no field ", s))
+                function Base.setproperty!( o::$name, s::Symbol, v)
+                    if s in $const_field_names
+                        error("const field ", s, " of type ", $name, " cannot be changed")
+                    end
+                    getindex(getfield(o, :properties), s)[] = v
                 end # function
 
                 function Base.propertynames( o::$name )
-                    return Tuple(keys( getfield(o, :properties) ))
+                    return propertynames( getfield(o, :properties) )
                 end # function
             end
         else
@@ -141,5 +160,3 @@ macro proto( expr )
         end
     ex |> esc
 end # macro
-
-
