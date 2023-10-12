@@ -57,7 +57,9 @@ end
     @test tw.E == "yepp"
 end
 
-@proto mutable struct TestMutation{T, V <: Real}
+abstract type AbstractMutation end
+
+@proto mutable struct TestMutation{T, V <: Real} <: AbstractMutation
     A::Int = 1
     B = :no
     C::T = nothing
@@ -76,4 +78,5 @@ end
     @test tm.C === nothing
     @test tm.D == 1.2
     @test tm.E == "nope"
+    @test TestMutation <: AbstractMutation
 end
