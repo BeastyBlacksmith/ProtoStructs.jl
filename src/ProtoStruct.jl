@@ -28,32 +28,23 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
-    const_fields = []
     fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
                     if field isa Symbol
-                        push!(const_fields, false)
                         return field
                     end
-                    is_const = field.head == :const
-                    if is_const
-                        field = field.args[1]
-                    end
-                    push!(const_fields, is_const)
                     if field.head == :(=)
-                        return field.args[1]
+                        field.args[1]
                     else
-                        return field
+                        field
                     end
                 end
-    i = 0
     field_info = map(fields) do field
-                        i += 1
-                        if field isa Symbol
-                            return (field, Any, const_fields[i])
+                        return if field isa Symbol
+                            (field, Any)
 #                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
 #                            (field.args[1].args[1], field.args[1].args[2])
                         else
-                            return (field.args[1], field.args[2], const_fields[i])
+                            (field.args[1], field.args[2])
                         end
                     end
 
@@ -115,9 +106,6 @@ macro proto( expr )
                 end
 
                 function Base.setproperty!( o::$name, s::Symbol, v)
-                    if s in $const_field_names
-                        error("const field ", s, " of type ", $name, " cannot be changed")
-                    end
                     getindex(getfield(o, :properties), s)[] = v
                 end # function
 
