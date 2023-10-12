@@ -1,3 +1,6 @@
+
+abstract type AbstractProto end
+
 macro proto( expr )
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
@@ -9,6 +12,8 @@ macro proto( expr )
     if name.head == :<:
         abstract_type = name.args[2]
         name = name.args[1]
+    else
+        abstract_type = :(ProtoStructs.AbstractProto)
     end
 
     type_parameters = nothing
