@@ -64,9 +64,11 @@ end
 
 @testset "Mutation" begin
     tm = @test_nowarn TestMutation(4, 2.0)
+    @test tm.F == 4 && tm.G == 2.0
     tm.F = 8
-    @test_throws MethodError tm.F = "2"
-    propertynames(tm) = (:F, :G)
+    @test tm.F == 8 && tm.G == 2.0
+    @test_throws ErrorException tm.F = "2"
+    @test propertynames(tm) == (:F, :G)
 end
     
 @proto mutable struct TestParametricMutation{T, V <: Real}
