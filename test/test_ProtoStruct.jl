@@ -64,7 +64,7 @@ end
 @testset "Mutation" begin
     tm = @test_nowarn TestMutation(4)
     tm.F = 8
-    @test_throws ErrorException a.F = "2"
+    @test_throws ErrorException tm.F = "2"
 end
     
 @proto mutable struct TestParametricMutation{T, V <: Real}
