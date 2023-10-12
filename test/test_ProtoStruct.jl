@@ -59,12 +59,14 @@ end
 
 @proto mutable struct TestMutation
     F::Int
+    G::Float64
 end
 
 @testset "Mutation" begin
-    tm = @test_nowarn TestMutation(4)
+    tm = @test_nowarn TestMutation(4, 2.0)
     tm.F = 8
     @test_throws ErrorException tm.F = "2"
+    propertynames(tm) = (:F, :G)
 end
     
 @proto mutable struct TestParametricMutation{T, V <: Real}
