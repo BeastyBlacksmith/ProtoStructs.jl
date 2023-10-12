@@ -5,6 +5,12 @@ macro proto( expr )
     ismutable = expr.args[1]
 
     name = expr.args[2]
+
+    if name.head == :<:
+        abstract_type = name.args[2]
+        name = name.args[1]
+    end
+
     type_parameters = nothing
     type_parameter_names = []
     type_parameter_types = []
@@ -72,7 +78,7 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{AD<:AbstractDict}
+                    struct $name{AD<:AbstractDict} <: $abstract_type
                         properties::AD
                     end # struct
                 else
@@ -109,7 +115,7 @@ macro proto( expr )
         else
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple}
+                    struct $name{NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end # struct
                 else
