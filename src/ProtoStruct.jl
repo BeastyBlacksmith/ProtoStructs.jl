@@ -1,4 +1,8 @@
 macro proto( expr )
+    if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
+        expr = expr.args[3]
+    end
+
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
