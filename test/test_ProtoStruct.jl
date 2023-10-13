@@ -57,9 +57,33 @@ end
     @test tw.E == "yepp"
 end
 
+@proto @kwdef struct TestMacroOutside
+    A::Int = 1
+end
+
+@testset "@kwdef macro outside" begin
+    tw = TestMacroOutside()
+    @test tw isa TestMacroOutside
+    @test tw.A == 1
+end
+
+@proto mutable struct TestMutation
+    F::Int
+    G::Float64
+end
+
+@testset "Mutation" begin
+    tm = @test_nowarn TestMutation(4, 2.0)
+    @test tm.F == 4 && tm.G == 2.0
+    tm.F = 8
+    @test tm.F == 8 && tm.G == 2.0
+    @test_throws MethodError tm.F = "2"
+    @test propertynames(tm) == (:F, :G)
+end
+  
 abstract type AbstractMutation end
 
-@proto mutable struct TestMutation{T, V <: Real} <: AbstractMutation
+@proto mutable struct TestParametricMutation{T, V <: Real} <: AbstractMutation
     A::Int = 1
     B = :no
     C::T = nothing
@@ -67,16 +91,16 @@ abstract type AbstractMutation end
     E::String
 end
 
-@testset "Mutation" begin
-    tm = @test_nowarn TestMutation(D = 1.2, E = "yepp")
-    tm.A = 2
-    tm.E = "nope"
-    @test_throws ErrorException tm.this = "is wrong"
-    @test tm isa TestMutation
-    @test tm.A == 2
-    @test tm.B == :no
-    @test tm.C === nothing
-    @test tm.D == 1.2
-    @test tm.E == "nope"
+@testset "Parametric Mutation" begin
+    tpm = @test_nowarn TestParametricMutation(D = 1.2, E = "yepp")
+    tpm.A = 2
+    tpm.E = "nope"
+    @test_throws ErrorException tpm.this = "is wrong"
+    @test tpm isa TestParametricMutation
+    @test tpm.A == 2
+    @test tpm.B == :no
+    @test tpm.C === nothing
+    @test tpm.D == 1.2
+    @test tpm.E == "nope"
     @test TestMutation <: AbstractMutation
 end
