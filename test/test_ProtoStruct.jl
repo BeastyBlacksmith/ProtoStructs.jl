@@ -73,9 +73,9 @@ end
     
 @proto mutable struct TestParametricMutation{T, V <: Real}
     A::Int = 1
-    const B = :no
+    B = :no
     C::T = nothing
-    const D::V
+    D::V
     E::String
 end
 
@@ -83,7 +83,6 @@ end
     tpm = @test_nowarn TestParametricMutation(D = 1.2, E = "yepp")
     tpm.A = 2
     tpm.E = "nope"
-    @test_throws ErrorException tpm.B = :yes
     @test_throws ErrorException tpm.this = "is wrong"
     @test tpm isa TestParametricMutation
     @test tpm.A == 2
@@ -91,4 +90,23 @@ end
     @test tpm.C === nothing
     @test tpm.D == 1.2
     @test tpm.E == "nope"
+end
+
+@static if VERSION >= v"1.8"
+    @proto mutable struct WithConstFields{T}
+        A::Int = 1
+        const B = :no
+        const C::T = 3
+        D
+    end
+    
+    @testset "const fields" begin
+        cf = @test_nowarn WithConstFields(D = 1.2)
+        @test cf.A == 1
+        @test cf.B == :no
+        @test cf.C == 3
+        cf.A = 5
+        @test_throws ErrorException cf.B = :yes
+        @test_throws ErrorException cf.C = 5
+    end
 end
