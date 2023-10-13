@@ -1,5 +1,9 @@
 using ProtoStructs, Test
 
+@proto struct SimpleTestMe
+    A::Int
+end
+
 @proto struct TestMe{T, V <: Real}
     A::Int
     B
@@ -10,6 +14,7 @@ test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
 test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
+    @test SimpleTestMe(1) isa SimpleTestMe
     @test TestMe((A=1,)) isa TestMe
     @test_throws UndefKeywordError TestMe(A=1)
 end # testset
