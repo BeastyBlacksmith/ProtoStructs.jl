@@ -5,7 +5,7 @@
 You are developing a new datastructure and are tired of restarting everytime you change your mind?
 `ProtoStructs` lets you have `structs` which behave like they would have been redifined.
 
-Here is how this works:
+Here is how it works:
 
 ```julia
 using ProtoStructs
