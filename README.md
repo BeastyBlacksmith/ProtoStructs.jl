@@ -20,4 +20,4 @@ b = DevType(c=:boo)
 c = DevType(2, 4.0, nothing)
 ```
 
-Redefine at will, but please remove the `@proto` macro and restart after developing.
+Redefine at will, but remove the `@proto` macro after developing to ensure correctness and improve performance of your code.
