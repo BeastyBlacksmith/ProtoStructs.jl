@@ -119,7 +119,7 @@ macro proto( expr )
                         error("const field ", s, " of type ", $name, " cannot be changed")
                     end
                     getindex(getfield(o, :properties), s)[] = v
-                end # function
+                end
 
                 function Base.propertynames( o::$name )
                     return propertynames( getfield(o, :properties) )
