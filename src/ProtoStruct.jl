@@ -102,12 +102,12 @@ macro proto( expr )
                 if !@isdefined $name
                     struct $name{NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[3])
-                end # if
+                end
 
                 $(
                     if type_parameters === nothing
@@ -134,19 +134,19 @@ macro proto( expr )
 
                 function Base.propertynames( o::$name )
                     return propertynames( getfield(o, :properties) )
-                end # function
+                end
             end
         else
             quote
                 if !@isdefined $name
                     struct $name{NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[3])
-                end # if
+                end
 
                 $(
                     if type_parameters === nothing
@@ -162,12 +162,12 @@ macro proto( expr )
 
                 function Base.getproperty( o::$name, s::Symbol )
                     return getproperty( getfield(o, :properties), s )
-                end # function
+                end
 
                 function Base.propertynames( o::$name )
                     return propertynames( getfield(o, :properties) )
-                end # function
-            end # quote
+                end
+            end
         end
     ex |> esc
-end # macro
+end
