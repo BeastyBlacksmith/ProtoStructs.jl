@@ -11,7 +11,7 @@ macro proto( expr )
 
     name = expr.args[2]
 
-    if name.head == :<:
+    if !(name isa Symbol) && name.head == :<:
         abstract_type = name.args[2]
         name = name.args[1]
     else
