@@ -51,8 +51,15 @@ macro proto( expr )
                             (field.args[1], field.args[2])
                         end
                     end
+
     field_names = Tuple(getindex.(field_info, 1))
-    field_types = quote Tuple{$(getindex.(field_info, 2)...)} end
+    if ismutable
+        field_types = :(Tuple{$((:(Base.RefValue{<:$x}) for x in getindex.(field_info, 2))...)})
+        fields_with_ref = (:($x=Ref($x)) for x in field_names)
+    else
+        field_types = :(Tuple{$(getindex.(field_info, 2)...)})
+    end
+
     field_subtype_info = map(getindex.(field_info, 2)) do ft
         if ft in type_parameter_names
             return type_parameter_types[ft]
@@ -76,8 +83,8 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{AD<:AbstractDict}
-                        properties::AD
+                    struct $name{NT<:NamedTuple}
+                        properties::NT
                     end # struct
                 else
                     the_methods = collect(methods($name))
@@ -87,9 +94,9 @@ macro proto( expr )
 
                 $(
                     if type_parameters === nothing
-                        :( $name(args...) = $name(Dict{Symbol,Any}(zip($field_names, args))) )
+                        :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(Ref.(args))) )
                     else
-                        :( $name($(fields...)) where {$(type_parameters...)} = $name(Dict{Symbol,Any}(zip($field_names, ($(field_names...),)))) )
+                        :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))) )
                     end
                 )
 
@@ -98,16 +105,15 @@ macro proto( expr )
                 end
 
                 function Base.getproperty( o::$name, s::Symbol )
-                    return getindex( getfield(o, :properties), s)
-                end # function
+                    return getindex(getfield(o, :properties), s)[]
+                end
 
-                function Base.setproperty!( o::$name, s::Symbol, v )
-                    dict = getfield(o, :properties)
-                    return haskey(dict, s) ? setindex!( dict, v, s) : error(string("type ", $name, " has no field ", s))
+                function Base.setproperty!( o::$name, s::Symbol, v)
+                    getindex(getfield(o, :properties), s)[] = v
                 end # function
 
                 function Base.propertynames( o::$name )
-                    return Tuple(keys( getfield(o, :properties) ))
+                    return propertynames( getfield(o, :properties) )
                 end # function
             end
         else
