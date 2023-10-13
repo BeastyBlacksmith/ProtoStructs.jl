@@ -50,8 +50,6 @@ macro proto( expr )
                         i += 1
                         if field isa Symbol
                             return (field, Any, const_fields[i])
-#                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
-#                            (field.args[1].args[1], field.args[1].args[2])
                         else
                             return (field.args[1], field.args[2], const_fields[i])
                         end
