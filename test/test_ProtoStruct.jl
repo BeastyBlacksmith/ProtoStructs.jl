@@ -102,5 +102,5 @@ end
     @test tpm.C === nothing
     @test tpm.D == 1.2
     @test tpm.E == "nope"
-    @test TestMutation <: AbstractMutation
+    @test TestParametricMutation <: AbstractMutation
 end
