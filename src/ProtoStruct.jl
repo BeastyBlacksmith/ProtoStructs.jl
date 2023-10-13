@@ -1,10 +1,23 @@
+
 macro proto( expr )
+    if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
+        expr = expr.args[3]
+    end
+
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
     ismutable = expr.args[1]
 
     name = expr.args[2]
+
+    if !(name isa Symbol) && name.head == :<:
+        abstract_type = name.args[2]
+        name = name.args[1]
+    else
+        abstract_type = :(Any)
+    end
+
     type_parameters = nothing
     type_parameter_names = []
     type_parameter_types = []
@@ -87,7 +100,7 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple}
+                    struct $name{NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end # struct
                 else
@@ -126,7 +139,7 @@ macro proto( expr )
         else
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple}
+                    struct $name{NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end # struct
                 else

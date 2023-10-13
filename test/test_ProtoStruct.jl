@@ -62,6 +62,16 @@ end
     @test tw.E == "yepp"
 end
 
+@proto @kwdef struct TestMacroOutside
+    A::Int = 1
+end
+
+@testset "@kwdef macro outside" begin
+    tw = TestMacroOutside()
+    @test tw isa TestMacroOutside
+    @test tw.A == 1
+end
+
 @proto mutable struct TestMutation
     F::Int
     G::Float64
@@ -75,8 +85,10 @@ end
     @test_throws MethodError tm.F = "2"
     @test propertynames(tm) == (:F, :G)
 end
-    
-@proto mutable struct TestParametricMutation{T, V <: Real}
+  
+abstract type AbstractMutation end
+
+@proto mutable struct TestParametricMutation{T, V <: Real} <: AbstractMutation
     A::Int = 1
     B = :no
     C::T = nothing
@@ -95,6 +107,7 @@ end
     @test tpm.C === nothing
     @test tpm.D == 1.2
     @test tpm.E == "nope"
+    @test TestParametricMutation <: AbstractMutation
 end
 
 @static if VERSION >= v"1.8"
