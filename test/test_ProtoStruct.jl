@@ -80,8 +80,10 @@ end
     @test_throws MethodError tm.F = "2"
     @test propertynames(tm) == (:F, :G)
 end
-    
-@proto mutable struct TestParametricMutation{T, V <: Real}
+  
+abstract type AbstractMutation end
+
+@proto mutable struct TestParametricMutation{T, V <: Real} <: AbstractMutation
     A::Int = 1
     B = :no
     C::T = nothing
@@ -100,4 +102,5 @@ end
     @test tpm.C === nothing
     @test tpm.D == 1.2
     @test tpm.E == "nope"
+    @test TestParametricMutation <: AbstractMutation
 end
