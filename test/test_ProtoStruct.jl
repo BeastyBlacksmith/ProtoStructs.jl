@@ -83,7 +83,7 @@ end
     tpm = @test_nowarn TestParametricMutation(D = 1.2, E = "yepp")
     tpm.A = 2
     tpm.E = "nope"
-    @test_throws ErrorException tm.B = :yes
+    @test_throws ErrorException tpm.B = :yes
     @test_throws ErrorException tpm.this = "is wrong"
     @test tpm isa TestParametricMutation
     @test tpm.A == 2
