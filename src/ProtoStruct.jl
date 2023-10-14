@@ -118,8 +118,12 @@ macro proto( expr )
                     v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
-
+            
                 function $name($params_ex)
+                    $name($(call_args...))
+                end
+
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
                     $name($(call_args...))
                 end
 
@@ -164,10 +168,15 @@ macro proto( expr )
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
                     return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
+            
                 function $name($params_ex)
                     $name($(call_args...))
                 end
-
+            
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
+                    $name($(call_args...))
+                end
+            
                 function Base.getproperty( o::$name, s::Symbol )
                     return getproperty( getfield(o, :properties), s )
                 end # function
