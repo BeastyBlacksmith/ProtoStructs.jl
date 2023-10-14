@@ -131,8 +131,8 @@ macro proto( expr )
                     return propertynames( getfield(o, :properties) )
                 end # function
 
-                function Base.show(io::IO, o::$name{$(type_parameters...)}) where {$(type_parameters...)}
-                    print(io, $name{$(type_parameters...)}, "($(getfield(o, :properties)...))")
+                function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
+                    print(io, $name{$(type_parameter_names...)}, "($(getfield(o, :properties)...))")
                 end
             end
         else
@@ -173,8 +173,8 @@ macro proto( expr )
                     return propertynames( getfield(o, :properties) )
                 end # function
 
-                function Base.show(io::IO, o::$name{$(type_parameters...)}) where {$(type_parameters...)}
-                    print(io, $name{$(type_parameters...)}, "($(getfield(o, :properties)...))")
+                function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
+                    print(io, $name{$(type_parameter_names...)}, "($(getfield(o, :properties)...))")
                 end
             end # quote
         end
