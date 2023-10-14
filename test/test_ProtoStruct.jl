@@ -15,7 +15,7 @@ test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
     @test SimpleTestMe(1) isa SimpleTestMe
-    @test TestMe((A=1,)) isa TestMe
+    @test test_me isa TestMe
     @test_throws UndefKeywordError TestMe(A=1)
 end # testset
 
