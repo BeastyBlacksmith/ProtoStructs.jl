@@ -132,7 +132,7 @@ macro proto( expr )
                 end # function
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
-                    vals = join([x[] for x in getfield(a, :properties)], ", ")
+                    vals = join([x[] for x in getfield(o, :properties)], ", ")
                     print(io, $name{$(type_parameter_names...)}, "($vals)")
                 end
             end
@@ -175,7 +175,7 @@ macro proto( expr )
                 end # function
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
-                    vals = join(getfield(a, :properties), ", ")
+                    vals = join(getfield(o, :properties), ", ")
                     print(io, $name{$(type_parameter_names...)}, "($vals)")
                 end
             end # quote
