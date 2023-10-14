@@ -132,7 +132,8 @@ macro proto( expr )
                 end # function
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
-                    print(io, $name{$(type_parameter_names...)}, "($(getfield(o, :properties)...))")
+                    vals = join([x[] for x in getfield(a, :properties)], ", ")
+                    print(io, $name{$(type_parameter_names...)}, "($vals)")
                 end
             end
         else
