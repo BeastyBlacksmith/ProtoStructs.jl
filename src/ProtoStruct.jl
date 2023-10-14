@@ -101,8 +101,6 @@ macro proto( expr )
                     Base.delete_method(the_methods[2])
                 end
 
-                $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(fields_with_ref...),)))
-
                 function $name($(fields...)) where {$(type_parameters...)} 
                     v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), typeof(v)}(v)
@@ -144,8 +142,6 @@ macro proto( expr )
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[2])
                 end
-
-                $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),)))
 
                 function $name($(fields...)) where {$(type_parameters...)} 
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
