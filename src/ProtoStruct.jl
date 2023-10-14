@@ -110,7 +110,12 @@ macro proto( expr )
                 )
 
                 function $name($(fields...)) where {$(type_parameters...)} 
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
+                    return $name{$(type_parameter_names...), typeof(v)}(v)
+                end
+
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
 
@@ -155,6 +160,10 @@ macro proto( expr )
                     return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
 
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{$(type_parameter_names...), typeof(v)}(v)
+                end
                 function $name($params_ex)
                     $name($(call_args...))
                 end
