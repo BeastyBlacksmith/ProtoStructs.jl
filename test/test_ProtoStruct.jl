@@ -15,7 +15,7 @@ test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 end # testset
 
 @testset "Printing" begin
-    @test repr(test_me) == "TestMe{Complex{Int64}, Int64}(121 + 0im5)"
+    @test repr(test_me) == "TestMe{Complex{Int64}, Int64}(1, 2, 1 + 0im, 5)"
 end
 
 @testset "Access" begin
