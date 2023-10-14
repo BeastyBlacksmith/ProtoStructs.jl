@@ -18,7 +18,7 @@ macro proto( expr )
         abstract_type = :(Any)
     end
 
-    type_parameters = nothing
+    type_parameters = []
     type_parameter_names = []
     type_parameter_types = []
     if !(name isa Symbol)
