@@ -36,7 +36,7 @@ test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
 
 
 @testset "Redefinition" begin
-    @test length(methods(TestMe)) == 3
+    @test length(methods(TestMe)) == 2
 end # testset
 
 @proto struct TestKw{T, V <: Real}
