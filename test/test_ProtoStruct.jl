@@ -14,6 +14,10 @@ test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
     @test_throws UndefKeywordError TestMe(A=1)
 end # testset
 
+@testset "Printing" begin
+    @test repr(test_me) == "TestMe{Complex{Int64}, Int64}(121 + 0im5)"
+end
+
 @testset "Access" begin
     @test test_me.A == 1
     @test test_me.B == "2"
@@ -114,5 +118,5 @@ end
     tpm3 = @test_nowarn TestParametricMutation{Nothing, Float64}(1, :no, nothing, 1.2, "yepp")
     @test tpm3 isa TestParametricMutation
     @test tpm3 isa TestParametricMutation{Nothing, Float64}
-    @test !(tpm3 isa TestParametricMutation{Nothing, Int})  
+    @test !(tpm3 isa TestParametricMutation{Nothing, Int})
 end
