@@ -92,14 +92,14 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{P1, P2, NT<:NamedTuple} <: $abstract_type
+                    struct $name{$(type_parameters...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[3])
-                end # if
+                    Base.delete_method(the_methods[2])
+                end
 
                 $(
                     if type_parameters === nothing
@@ -111,17 +111,7 @@ macro proto( expr )
 
                 function $name($(fields...)) where {$(type_parameters...)} 
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{Any, Any, typeof(v)}(v)
-                end
-
-                function $name{P1}($(fields...)) where {P1,$(type_parameters...)} 
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{P1, Any, typeof(v)}(v)
-                end
-
-                function $name{P1,P2}($(fields...)) where {P1,P2,$(type_parameters...)} 
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{P1, P2, typeof(v)}(v)
+                    return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
 
                 function $name($params_ex)
@@ -143,14 +133,14 @@ macro proto( expr )
         else
             quote
                 if !@isdefined $name
-                    struct $name{P1, P2, NT<:NamedTuple} <: $abstract_type
+                    struct $name{$(type_parameters...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[3])
-                end # if
+                    Base.delete_method(the_methods[2])
+                end
 
                 $(
                     if type_parameters === nothing
@@ -162,17 +152,7 @@ macro proto( expr )
 
                 function $name($(fields...)) where {$(type_parameters...)} 
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{Any, Any, typeof(v)}(v)
-                end
-
-                function $name{P1}($(fields...)) where {P1,$(type_parameters...)} 
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{P1, Any, typeof(v)}(v)
-                end
-
-                function $name{P1,P2}($(fields...)) where {P1,P2,$(type_parameters...)} 
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{P1, P2, typeof(v)}(v)
+                    return $name{$(type_parameter_names...), typeof(v)}(v)
                 end
 
                 function $name($params_ex)
