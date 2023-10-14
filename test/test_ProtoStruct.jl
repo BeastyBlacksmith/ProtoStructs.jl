@@ -110,4 +110,9 @@ end
     @test tpm2 isa TestParametricMutation
     @test tpm2 isa TestParametricMutation{Nothing, Float64}
     @test !(tpm2 isa TestParametricMutation{Nothing, Int})    
+    @test_throws ErrorException tpm3 = TestParametricMutation{Int, Float64}(1, :no, nothing, 1.2, "yepp")
+    tpm3 = @test_nowarn TestParametricMutation{Nothing, Float64}(1, :no, nothing, 1.2, "yepp")
+    @test tpm3 isa TestParametricMutation
+    @test tpm3 isa TestParametricMutation{Nothing, Float64}
+    @test !(tpm3 isa TestParametricMutation{Nothing, Int})  
 end
