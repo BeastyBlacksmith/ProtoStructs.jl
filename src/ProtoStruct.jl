@@ -92,7 +92,7 @@ macro proto( expr )
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple} <: $abstract_type
+                    struct $name{P1, P2, NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end # struct
                 else
@@ -108,6 +108,21 @@ macro proto( expr )
                         :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))) )
                     end
                 )
+
+                function $name($(fields...)) where {$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{Any, Any, typeof(v)}(v)
+                end
+
+                function $name{P1}($(fields...)) where {P1,$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{P1, Any, typeof(v)}(v)
+                end
+
+                function $name{P1,P2}($(fields...)) where {P1,P2,$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{P1, P2, typeof(v)}(v)
+                end
 
                 function $name($params_ex)
                     $name($(call_args...))
@@ -128,7 +143,7 @@ macro proto( expr )
         else
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple} <: $abstract_type
+                    struct $name{P1, P2, NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end # struct
                 else
@@ -144,6 +159,21 @@ macro proto( expr )
                         :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),))) )
                     end
                 )
+
+                function $name($(fields...)) where {$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{Any, Any, typeof(v)}(v)
+                end
+
+                function $name{P1}($(fields...)) where {P1,$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{P1, Any, typeof(v)}(v)
+                end
+
+                function $name{P1,P2}($(fields...)) where {P1,P2,$(type_parameters...)} 
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{P1, P2, typeof(v)}(v)
+                end
 
                 function $name($params_ex)
                     $name($(call_args...))
