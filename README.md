@@ -10,7 +10,7 @@ Here is how it works:
 ```julia
 using ProtoStructs
 
-@proto struct DevType
+@proto @kwdef struct DevType
     a::Int = 1
     b::Float64 = 2.0
     c
