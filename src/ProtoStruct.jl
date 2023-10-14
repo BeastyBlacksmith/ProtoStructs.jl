@@ -124,7 +124,7 @@ macro proto( expr )
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
-                    $name($(call_args...))
+                    $name{$(type_parameter_names...)}($(call_args...))
                 end
 
                 function Base.getproperty( o::$name, s::Symbol )
@@ -174,7 +174,7 @@ macro proto( expr )
                 end
             
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
-                    $name($(call_args...))
+                    $name{$(type_parameter_names...)}($(call_args...))
                 end
             
                 function Base.getproperty( o::$name, s::Symbol )
