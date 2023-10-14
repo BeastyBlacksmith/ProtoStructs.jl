@@ -97,10 +97,17 @@ end
     tpm.E = "nope"
     @test_throws ErrorException tpm.this = "is wrong"
     @test tpm isa TestParametricMutation
+    @test tpm isa TestParametricMutation{Nothing, Float64}
+    @test !(tpm isa TestParametricMutation{Nothing, Int})
     @test tpm.A == 2
     @test tpm.B == :no
     @test tpm.C === nothing
     @test tpm.D == 1.2
     @test tpm.E == "nope"
     @test TestParametricMutation <: AbstractMutation
+    @test_throws ErrorException tpm2 = TestParametricMutation{Int, Float64}(D = 1.2, E = "yepp")
+    tpm2 = @test_nowarn TestParametricMutation{Nothing, Float64}(D = 1.2, E = "yepp")
+    @test tpm2 isa TestParametricMutation
+    @test tpm2 isa TestParametricMutation{Nothing, Float64}
+    @test !(tpm2 isa TestParametricMutation{Nothing, Int})    
 end
