@@ -187,11 +187,11 @@ macro proto(expr)
                 end
             
                 function Base.getproperty( o::$name, s::Symbol )
-                    return getproperty( getfield(o, :properties), s )
+                    return getproperty(getfield(o, :properties), s)
                 end
 
                 function Base.propertynames( o::$name )
-                    return propertynames( getfield(o, :properties) )
+                    return propertynames(getfield(o, :properties))
                 end
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
