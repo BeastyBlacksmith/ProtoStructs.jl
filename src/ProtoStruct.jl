@@ -89,7 +89,7 @@ macro proto( expr )
         ex
     end
 
-    default_params = [Symbol("P", i) for i in 1:10]
+    default_params = [Symbol("P", i) for i in 1:15]
     N_any_params = length(default_params) - length(type_parameter_names)
     N_any_params <= 0 && error("The number of parameters of the proto struct is too high")
     any_params = [:(Any) for _ in 1:N_any_params]
