@@ -22,6 +22,7 @@ jobs:
             os: ubuntu-latest
             julia-arch: x64
             allow-failure: true
+            continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
