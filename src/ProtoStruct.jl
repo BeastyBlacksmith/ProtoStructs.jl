@@ -1,5 +1,5 @@
 
-macro proto( expr )
+macro proto(expr)
     if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
         expr = expr.args[3]
     end
@@ -7,8 +7,8 @@ macro proto( expr )
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
+    
     ismutable = expr.args[1]
-
     name = expr.args[2]
 
     if !(name isa Symbol) && name.head == :<:
@@ -41,27 +41,36 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
+    const_fields = []
     fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
                     if field isa Symbol
+                        push!(const_fields, false)
                         return field
                     end
+                    is_const = field.head == :const
+                    if is_const
+                        field = field.args[1]
+                    end
+                    push!(const_fields, is_const)
                     if field.head == :(=)
-                        field.args[1]
+                        return field.args[1]
                     else
-                        field
+                        return field
                     end
                 end
+    i = 0
     field_info = map(fields) do field
-                        return if field isa Symbol
-                            (field, Any)
-#                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
-#                            (field.args[1].args[1], field.args[1].args[2])
+                        i += 1
+                        if field isa Symbol
+                            return (field, Any, const_fields[i])
                         else
-                            (field.args[1], field.args[2])
+                            return (field.args[1], field.args[2], const_fields[i])
                         end
                     end
 
     field_names = Tuple(getindex.(field_info, 1))
+    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
+
     if ismutable
         field_types = :(Tuple{$((:(Base.RefValue{<:$x}) for x in getindex.(field_info, 2))...)})
         fields_with_ref = (:($x=Ref($x)) for x in field_names)
@@ -117,28 +126,34 @@ macro proto( expr )
                 end
             
                 function $name($params_ex)
-                    $name($(call_args...))
+                    return $name($(call_args...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
 
-                function Base.getproperty( o::$name, s::Symbol )
-                    return getindex(getfield(o, :properties), s)[]
+                function Base.getproperty(o::$name, s::Symbol)
+                    return getproperty(getfield(o, :properties), s)[]
                 end
 
-                function Base.setproperty!( o::$name, s::Symbol, v)
-                    getindex(getfield(o, :properties), s)[] = v
-                end # function
+                function Base.setproperty!(o::$name, s::Symbol, v)
+                    if s in $const_field_names
+                        error("const field $s of type ", $name, " cannot be changed")
+                    end
+                    return getproperty(getfield(o, :properties), s)[] = v
+                end
 
-                function Base.propertynames( o::$name )
-                    return propertynames( getfield(o, :properties) )
-                end # function
+                function Base.propertynames(o::$name)
+                    return propertynames(getfield(o, :properties))
+                end
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
                     vals = join([x[] isa String ? "\"$(x[])\"" : x[] for x in getfield(o, :properties)], ", ")
                     print(io, $name{$(type_parameter_names...)}, "($vals)")
+
+                function Base.propertynames(o::$name)
+                    return propertynames(getfield(o, :properties))
                 end
             end
         else
@@ -164,7 +179,7 @@ macro proto( expr )
                 end
             
                 function $name($params_ex)
-                    $name($(call_args...))
+                    return $name($(call_args...))
                 end
             
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
@@ -173,17 +188,17 @@ macro proto( expr )
             
                 function Base.getproperty( o::$name, s::Symbol )
                     return getproperty( getfield(o, :properties), s )
-                end # function
+                end
 
                 function Base.propertynames( o::$name )
                     return propertynames( getfield(o, :properties) )
-                end # function
+                end
 
                 function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
                     vals = join([x isa String ? "\"$x\"" : x for x in getfield(o, :properties)], ", ")
                     print(io, $name{$(type_parameter_names...)}, "($vals)")
                 end
-            end # quote
+            end
         end
-    ex |> esc
-end # macro
+    return esc(ex)
+end

@@ -1,5 +1,9 @@
 using ProtoStructs, Test
 
+@proto struct SimpleTestMe
+    A::Int
+end
+
 @proto struct TestMe{T, V <: Real}
     A::Int
     B
@@ -10,9 +14,10 @@ test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
 test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
+    @test SimpleTestMe(1) isa SimpleTestMe
     @test test_me isa TestMe
     @test_throws UndefKeywordError TestMe(A=1)
-end # testset
+end
 
 @testset "Printing" begin
     @test repr(test_me) == "TestMe{Complex{$Int}, $Int}(1, \"2\", 1 + 0im, 5)"
@@ -22,11 +27,11 @@ end
     @test test_me.A == 1
     @test test_me.B == "2"
     @test test_me.C == complex(1)
-end # testset
+end
 
 @testset "Properties" begin
     @test propertynames( test_me ) == (:A, :B, :C, :D)
-end # testset
+end
 
 @proto struct TestMe{T, V <: Real}
     A::Int
@@ -38,10 +43,9 @@ end
 test_me2 = @test_nowarn TestMe(1, "2", complex(1), 5, "tadaa")
 test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
 
-
 @testset "Redefinition" begin
     @test length(methods(TestMe)) == 2
-end # testset
+end
 
 @proto struct TestKw{T, V <: Real}
     A::Int = 1
@@ -120,4 +124,23 @@ end
     @test tpm3 isa TestParametricMutation
     @test tpm3 isa TestParametricMutation{Nothing, Float64}
     @test !(tpm3 isa TestParametricMutation{Nothing, Int})
+end
+
+@static if VERSION >= v"1.8"
+    @proto mutable struct WithConstFields{T}
+        A::Int = 1
+        const B = :no
+        const C::T = 3
+        D
+    end
+    
+    @testset "const fields" begin
+        cf = @test_nowarn WithConstFields(D = 1.2)
+        @test cf.A == 1
+        @test cf.B == :no
+        @test cf.C == 3
+        cf.A = 5
+        @test_throws ErrorException cf.B = :yes
+        @test_throws ErrorException cf.C = 5
+    end
 end

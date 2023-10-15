@@ -9,15 +9,23 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        julia-version: ['1.6', '1', 'nightly']
+        julia-version: ['1.6', '1']
         julia-arch: [x64, x86]
         os: [ubuntu-latest, windows-latest, macOS-latest]
+        experimental: [false]
         exclude:
           - os: macOS-latest
             julia-arch: x86
+        include:
+          - julia-version: 'nightly'
+            os: ubuntu-latest
+            julia-arch: x64
+            allow-failure: true
+            experimental: true
 
     steps:
       - uses: actions/checkout@v4
