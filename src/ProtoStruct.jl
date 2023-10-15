@@ -183,11 +183,11 @@ macro proto(expr)
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
             
-                function Base.getproperty( o::$name, s::Symbol )
+                function Base.getproperty(o::$name, s::Symbol)
                     return getproperty(getfield(o, :properties), s)
                 end
 
-                function Base.propertynames( o::$name )
+                function Base.propertynames(o::$name)
                     return propertynames(getfield(o, :properties))
                 end
 
