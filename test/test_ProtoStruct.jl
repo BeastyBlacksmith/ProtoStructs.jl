@@ -1,5 +1,9 @@
 using ProtoStructs, Test
 
+@proto struct SimpleTestMe
+    A::Int
+end
+
 @proto struct TestMe{T, V <: Real}
     A::Int
     B
@@ -10,19 +14,20 @@ test_me = @test_nowarn TestMe(1, "2", complex(1), 5)
 test_me_kw = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5)
 
 @testset "Construction" begin
-    @test TestMe((A=1,)) isa TestMe
+    @test SimpleTestMe(1) isa SimpleTestMe
+    @test test_me isa TestMe
     @test_throws UndefKeywordError TestMe(A=1)
-end # testset
+end
 
 @testset "Access" begin
     @test test_me.A == 1
     @test test_me.B == "2"
     @test test_me.C == complex(1)
-end # testset
+end
 
 @testset "Properties" begin
     @test propertynames( test_me ) == (:A, :B, :C, :D)
-end # testset
+end
 
 @proto struct TestMe{T, V <: Real}
     A::Int
@@ -37,7 +42,7 @@ test_me_kw2 = @test_nowarn TestMe(A=1, B="2", C=complex(1), D=5, E="tadaa")
 
 @testset "Redefinition" begin
     @test length(methods(TestMe)) == 3
-end # testset
+end
 
 @proto struct TestKw{T, V <: Real}
     A::Int = 1
@@ -103,4 +108,23 @@ end
     @test tpm.D == 1.2
     @test tpm.E == "nope"
     @test TestParametricMutation <: AbstractMutation
+end
+
+@static if VERSION >= v"1.8"
+    @proto mutable struct WithConstFields{T}
+        A::Int = 1
+        const B = :no
+        const C::T = 3
+        D
+    end
+    
+    @testset "const fields" begin
+        cf = @test_nowarn WithConstFields(D = 1.2)
+        @test cf.A == 1
+        @test cf.B == :no
+        @test cf.C == 3
+        cf.A = 5
+        @test_throws ErrorException cf.B = :yes
+        @test_throws ErrorException cf.C = 5
+    end
 end
