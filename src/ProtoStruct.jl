@@ -96,7 +96,8 @@ macro proto( expr )
                         properties::NT
                     end # struct
                 else
-                    $abstract_type != supertypes($name)[2] && error("The abstract type of a proto struct is not redefinable")
+                    $abstract_type != ProtoStructs.supertypes($name)[2] && 
+                        error("The abstract type of a proto struct is not redefinable")
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[3])
@@ -133,7 +134,8 @@ macro proto( expr )
                         properties::NT
                     end # struct
                 else
-                    $abstract_type != supertypes($name)[2] && error("The abstract type of a proto struct is not redefinable")
+                    $abstract_type != ProtoStructs.supertypes($name)[2] && 
+                        error("The abstract type of a proto struct is not redefinable")
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[3])
