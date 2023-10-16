@@ -138,6 +138,13 @@ end
     tpm = @test_nowarn TestParametricMutation(D = 1, E = "yepp")
     @test tpm isa TestParametricMutation{Int}
     @test tpm isa AbstractMutation
+    @test_throws ErrorException @proto mutable struct TestParametricMutation{V<:Integer} <: Number
+            A::Int = 1
+            B = :no
+            C::Nothing = nothing
+            D::V
+            E::String
+        end
 end
 
 @static if VERSION >= v"1.8"
