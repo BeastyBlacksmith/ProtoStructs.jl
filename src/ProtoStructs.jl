@@ -6,4 +6,4 @@ using InteractiveUtils
 
 include("ProtoStruct.jl")
 
-end # module
+end
