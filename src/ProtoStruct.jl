@@ -7,7 +7,7 @@ macro proto(expr)
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
-    
+
     ismutable = expr.args[1]
     name = expr.args[2]
 
@@ -115,21 +115,21 @@ macro proto(expr)
                     Base.delete_method(the_methods[2])
                 end
 
-                function $name($(fields...)) where {$(type_parameters...)} 
+                function $name($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
 
-                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)} 
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
-            
+
                 function $name($params_ex)
                     return $name($(call_args...))
                 end
 
-                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
 
@@ -148,9 +148,14 @@ macro proto(expr)
                     return propertynames(getfield(o, :properties))
                 end
 
-                function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
+                function Base.show(io::IO, o::$name)
                     vals = join([x[] isa String ? "\"$(x[])\"" : x[] for x in getfield(o, :properties)], ", ")
-                    print(io, $name{$(type_parameter_names...)}, "($vals)")
+                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    if isempty(params)
+                        print(io, string($name), "($vals)")
+                    else
+                        print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
+                    end
                 end
             end
         else
@@ -165,24 +170,24 @@ macro proto(expr)
                     Base.delete_method(the_methods[2])
                 end
 
-                function $name($(fields...)) where {$(type_parameters...)} 
+                function $name($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
 
-                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)} 
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
-            
+
                 function $name($params_ex)
                     return $name($(call_args...))
                 end
-            
-                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)} 
+
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
-            
+
                 function Base.getproperty(o::$name, s::Symbol)
                     return getproperty(getfield(o, :properties), s)
                 end
@@ -191,9 +196,14 @@ macro proto(expr)
                     return propertynames(getfield(o, :properties))
                 end
 
-                function Base.show(io::IO, o::$name{$(type_parameter_names...)}) where {$(type_parameters...)}
+                function Base.show(io::IO, o::$name)
                     vals = join([x isa String ? "\"$x\"" : x for x in getfield(o, :properties)], ", ")
-                    print(io, $name{$(type_parameter_names...)}, "($vals)")
+                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    if isempty(params)
+                        print(io, string($name), "($vals)")
+                    else
+                        print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
+                    end
                 end
             end
         end
