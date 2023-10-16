@@ -1,18 +1,16 @@
-# ProtoStructs
+# ProtoStructs.jl
 
-[![Build Status](https://travis-ci.com/beastyblacksmith/ProtoStructs.jl.svg?branch=master)](https://travis-ci.com/beastyblacksmith/ProtoStructs.jl)
-[![Codecov](https://codecov.io/gh/beastyblacksmith/ProtoStructs.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/beastyblacksmith/ProtoStructs.jl)
+[![Run tests](https://github.com/BeastyBlacksmith/ProtoStructs.jl/actions/workflows/test.yml/badge.svg)](https://github.com/BeastyBlacksmith/ProtoStructs.jl/actions/workflows/test.yml) ![Codecov](https://codecov.io/gh/beastyblacksmith/ProtoStructs.jl/branch/master/graph/badge.svg)
 
 You are developing a new datastructure and are tired of restarting everytime you change your mind?
 `ProtoStructs` lets you have `structs` which behave like they would have been redifined.
 
-Here is how you do
+Here is how it works:
 
-Like:
 ```julia
 using ProtoStructs
 
-@proto struct DevType
+@proto @kwdef struct DevType
     a::Int = 1
     b::Float64 = 2.0
     c
@@ -22,8 +20,10 @@ b = DevType(c=:boo)
 c = DevType(2, 4.0, nothing)
 ```
 
-Redefine at will, but please remove the `@proto` macro after developing.
+Redefine at will, but remove the `@proto` macro after developing to ensure correctness and improve performance of your code.
+
+
 
 ---
 
-There is also [Redef](https://github.com/FedericoStra/RedefStructs.jl)
+For julia `VERSION < v"1.8"` there is also [Redef](https://github.com/FedericoStra/RedefStructs.jl).
