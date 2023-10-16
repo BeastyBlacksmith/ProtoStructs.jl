@@ -136,7 +136,7 @@ end
 
 @testset "Parametric Redefinition" begin
     tpm = @test_nowarn TestParametricMutation(D = 1, E = "yepp")
-    @test tpm isa TestParametricMutation{Int64}
+    @test tpm isa TestParametricMutation{Int}
     @test tpm isa AbstractMutation
 end
 
