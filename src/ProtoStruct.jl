@@ -1,5 +1,5 @@
 
-macro proto( expr )
+macro proto(expr)
     if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
         expr = expr.args[3]
     end
@@ -7,8 +7,8 @@ macro proto( expr )
     if expr.head != Symbol("struct")
         throw(ArgumentError("Expected expression to be a type definition."))
     end
-    ismutable = expr.args[1]
 
+    ismutable = expr.args[1]
     name = expr.args[2]
 
     if !(name isa Symbol) && name.head == :<:
@@ -18,7 +18,7 @@ macro proto( expr )
         abstract_type = :(Any)
     end
 
-    type_parameters = nothing
+    type_parameters = []
     type_parameter_names = []
     type_parameter_types = []
     if !(name isa Symbol)
@@ -41,27 +41,36 @@ macro proto( expr )
         type_parameter_types = Dict( type_parameter_names[i] => type_parameter_types[i] for i in eachindex(type_parameters))
     end
 
+    const_fields = []
     fields = map(expr.args[3].args[2:2:length(expr.args[3].args)]) do field
                     if field isa Symbol
+                        push!(const_fields, false)
                         return field
                     end
+                    is_const = field.head == :const
+                    if is_const
+                        field = field.args[1]
+                    end
+                    push!(const_fields, is_const)
                     if field.head == :(=)
-                        field.args[1]
+                        return field.args[1]
                     else
-                        field
+                        return field
                     end
                 end
+    i = 0
     field_info = map(fields) do field
-                        return if field isa Symbol
-                            (field, Any)
-#                        elseif field.head == :(=) && !(field.args[1] isa Symbol)
-#                            (field.args[1].args[1], field.args[1].args[2])
+                        i += 1
+                        if field isa Symbol
+                            return (field, Any, const_fields[i])
                         else
-                            (field.args[1], field.args[2])
+                            return (field.args[1], field.args[2], const_fields[i])
                         end
                     end
 
     field_names = Tuple(getindex.(field_info, 1))
+    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
+
     if ismutable
         field_types = :(Tuple{$((:(Base.RefValue{<:$x}) for x in getindex.(field_info, 2))...)})
         fields_with_ref = (:($x=Ref($x)) for x in field_names)
@@ -89,74 +98,114 @@ macro proto( expr )
         ex
     end
 
+    default_params = [Symbol("P", i) for i in 1:15]
+    N_any_params = length(default_params) - length(type_parameter_names)
+    N_any_params <= 0 && error("The number of parameters of the proto struct is too high")
+    any_params = [:(Any) for _ in 1:N_any_params]
+
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple} <: $abstract_type
+                    struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[3])
-                end # if
+                    Base.delete_method(the_methods[2])
+                end
 
-                $(
-                    if type_parameters === nothing
-                        :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(Ref.(args))) )
-                    else
-                        :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))) )
-                    end
-                )
+                function $name($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
+                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                end
+
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
+                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                end
 
                 function $name($params_ex)
-                    $name($(call_args...))
+                    return $name($(call_args...))
                 end
 
-                function Base.getproperty( o::$name, s::Symbol )
-                    return getindex(getfield(o, :properties), s)[]
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
+                    $name{$(type_parameter_names...)}($(call_args...))
                 end
 
-                function Base.setproperty!( o::$name, s::Symbol, v)
-                    getindex(getfield(o, :properties), s)[] = v
-                end # function
+                function Base.getproperty(o::$name, s::Symbol)
+                    return getproperty(getfield(o, :properties), s)[]
+                end
 
-                function Base.propertynames( o::$name )
-                    return propertynames( getfield(o, :properties) )
-                end # function
+                function Base.setproperty!(o::$name, s::Symbol, v)
+                    if s in $const_field_names
+                        error("const field $s of type ", $name, " cannot be changed")
+                    end
+                    return getproperty(getfield(o, :properties), s)[] = v
+                end
+
+                function Base.propertynames(o::$name)
+                    return propertynames(getfield(o, :properties))
+                end
+
+                function Base.show(io::IO, o::$name)
+                    vals = join([x[] isa String ? "\"$(x[])\"" : x[] for x in getfield(o, :properties)], ", ")
+                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    if isempty(params)
+                        print(io, string($name), "($vals)")
+                    else
+                        print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
+                    end
+                end
             end
         else
             quote
                 if !@isdefined $name
-                    struct $name{NT<:NamedTuple} <: $abstract_type
+                    struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
-                    end # struct
+                    end
                 else
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[3])
-                end # if
-
-                $(
-                    if type_parameters === nothing
-                        :( $name(args...) = $name(NamedTuple{$field_names, $field_types}(args)) )
-                    else
-                        :( $name($(fields...)) where {$(type_parameters...)} = $name(NamedTuple{$field_names, $field_types}(($(field_names...),))) )
-                    end
-                )
-
-                function $name($params_ex)
-                    $name($(call_args...))
+                    Base.delete_method(the_methods[2])
                 end
 
-                function Base.getproperty( o::$name, s::Symbol )
-                    return getproperty( getfield(o, :properties), s )
-                end # function
+                function $name($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                end
 
-                function Base.propertynames( o::$name )
-                    return propertynames( getfield(o, :properties) )
-                end # function
-            end # quote
+                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                end
+
+                function $name($params_ex)
+                    return $name($(call_args...))
+                end
+
+                function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
+                    $name{$(type_parameter_names...)}($(call_args...))
+                end
+
+                function Base.getproperty(o::$name, s::Symbol)
+                    return getproperty(getfield(o, :properties), s)
+                end
+
+                function Base.propertynames(o::$name)
+                    return propertynames(getfield(o, :properties))
+                end
+
+                function Base.show(io::IO, o::$name)
+                    vals = join([x isa String ? "\"$x\"" : x for x in getfield(o, :properties)], ", ")
+                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    if isempty(params)
+                        print(io, string($name), "($vals)")
+                    else
+                        print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
+                    end
+                end
+            end
         end
-    ex |> esc
-end # macro
+    return esc(ex)
+end

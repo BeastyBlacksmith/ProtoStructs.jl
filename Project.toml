@@ -1,7 +1,7 @@
 name = "ProtoStructs"
 uuid = "437b6fc4-8e8e-11e9-3fa1-ad391e66c018"
 authors = ["Simon Christ"]
-version = "1.1.1"
+version = "1.1.2"
 
 [compat]
 julia = "1.6"
