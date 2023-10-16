@@ -4,4 +4,4 @@ export @proto
 
 include("ProtoStruct.jl")
 
-end # module
+end

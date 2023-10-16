@@ -110,6 +110,9 @@ macro proto(expr)
                         properties::NT
                     end
                 else
+                    if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
+                        error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
+                    end
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[2])
@@ -165,6 +168,9 @@ macro proto(expr)
                         properties::NT
                     end
                 else
+                    if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
+                        error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
+                    end
                     the_methods = collect(methods($name))
                     Base.delete_method(the_methods[1])
                     Base.delete_method(the_methods[2])
