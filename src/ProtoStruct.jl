@@ -72,8 +72,10 @@ macro proto(expr)
     const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
 
     if ismutable
-        field_types = :(Tuple{$((:(Base.RefValue{$x} where {$x}) for x in getindex.(field_info, 2))...)})
-        fields_with_ref = (:($x=Ref($x)) for x in field_names)
+        field_types = :(Tuple{$((x in const_field_names ? :($x where {$x}) : (:(Base.RefValue{$x} where {$x}))
+                                for x in getindex.(field_info, 2))...)})
+        fields_with_ref = (x in const_field_names ? :($x=$x) : (:($x=Ref($x)))
+                           for x in field_names)
     else
         field_types = :(Tuple{$(getindex.(field_info, 2)...)})
     end
@@ -137,14 +139,21 @@ macro proto(expr)
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
-                    return getproperty(getfield(o, :properties), s)[]
+                    p = getproperty(getfield(o, :properties), s)
+                    if p isa Base.RefValue
+                        p[]
+                    else
+                        p
+                    end
                 end
 
                 function Base.setproperty!(o::$name, s::Symbol, v)
-                    if s in $const_field_names
+                    p = getproperty(getfield(o, :properties), s)
+                    if p isa Base.RefValue
+                        p[] = v
+                    else
                         error("const field $s of type ", $name, " cannot be changed")
                     end
-                    return getproperty(getfield(o, :properties), s)[] = v
                 end
 
                 function Base.propertynames(o::$name)
@@ -215,3 +224,4 @@ macro proto(expr)
         end
     return esc(ex)
 end
+
