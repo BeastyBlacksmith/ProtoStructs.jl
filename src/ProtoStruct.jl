@@ -72,7 +72,7 @@ macro proto(expr)
     const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
 
     if ismutable
-        field_types = :(Tuple{$((:(Base.RefValue{$x}) for x in getindex.(field_info, 2))...)})
+        field_types = :(Tuple{$((:(Base.RefValue{$x} where {$x}) for x in getindex.(field_info, 2))...)})
         fields_with_ref = (:($x=Ref($x)) for x in field_names)
     else
         field_types = :(Tuple{$(getindex.(field_info, 2)...)})
@@ -119,12 +119,12 @@ macro proto(expr)
                 end
 
                 function $name($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
+                    v = NamedTuple{$field_names}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
 
                 function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names, $field_types}(($(fields_with_ref...),))
+                    v = NamedTuple{$field_names}(($(fields_with_ref...),))
                     return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
                 end
 
