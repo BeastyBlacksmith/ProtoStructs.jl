@@ -10,9 +10,18 @@ Here is how it works:
 ```julia
 using ProtoStructs
 
-@proto @kwdef struct DevType
-    a::Int = 1
+@proto @kwdef struct DevType{T}
+    a::T = 1
     b::Float64 = 2.0
+    c
+end
+a = DevType(a=1, b=2.0, c="3")
+b = DevType(c=:boo)
+c = DevType(2, 4.0, nothing)
+
+@proto @kwdef mutable struct DevType{T1, T2}
+    a::T1 = 1
+    b::T2 = 2.0
     c
 end
 a = DevType(a=1, b=2.0, c="3")
