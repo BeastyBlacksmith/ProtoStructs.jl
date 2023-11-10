@@ -153,6 +153,7 @@ end
         const B = :no
         const C::T = 3
         D
+        const E::Vector{Int} = Int[]
     end
 
     @testset "const fields" begin
@@ -160,6 +161,7 @@ end
         @test cf.A == 1
         @test cf.B == :no
         @test cf.C == 3
+        @test (show(c); true)  # test if show method errors
         cf.A = 5
         @test_throws ErrorException cf.B = :yes
         @test_throws ErrorException cf.C = 5
