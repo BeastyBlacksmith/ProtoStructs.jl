@@ -161,7 +161,7 @@ end
         @test cf.A == 1
         @test cf.B == :no
         @test cf.C == 3
-        @test_nowarn show(cf)
+        @test_nowarn show(devnull, cf)
         cf.A = 5
         @test_throws ErrorException cf.B = :yes
         @test_throws ErrorException cf.C = 5
