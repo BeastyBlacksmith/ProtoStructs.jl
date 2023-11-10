@@ -3,7 +3,7 @@
 [![Run tests](https://github.com/BeastyBlacksmith/ProtoStructs.jl/actions/workflows/test.yml/badge.svg)](https://github.com/BeastyBlacksmith/ProtoStructs.jl/actions/workflows/test.yml) ![Codecov](https://codecov.io/gh/beastyblacksmith/ProtoStructs.jl/branch/master/graph/badge.svg)
 
 You are developing a new datastructure and are tired of restarting everytime you change your mind?
-`ProtoStructs` lets you have `structs` which behave like they would have been redifined.
+`ProtoStructs` lets you have `structs` which behave like they would have been redefined.
 
 Here is how it works:
 
