@@ -161,7 +161,7 @@ macro proto(expr)
                 end
 
                 function Base.show(io::IO, o::$name)
-                    vals = join([x[] isa String ? "\"$(x[])\"" : x[] for x in getfield(o, :properties)], ", ")
+                    vals = join([x isa Base.RefValue ? (x[] isa String ? "\"$(x[])\"" : x[]) : x for x in getfield(o, :properties)], ", ")
                     params = typeof(o).parameters[1:end-$N_any_params-1]
                     if isempty(params)
                         print(io, string($name), "($vals)")
