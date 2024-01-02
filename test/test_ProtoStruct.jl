@@ -167,3 +167,14 @@ end
         @test_throws ErrorException cf.C = 5
     end
 end
+
+"""
+This is a docstring.
+"""
+@proto struct DocTestMe
+    A::Int
+end
+
+@testset "Docstring" begin
+    @test string(@doc DocTestMe) == "This is a docstring.\n"
+end
