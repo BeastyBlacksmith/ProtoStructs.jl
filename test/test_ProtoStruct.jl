@@ -174,7 +174,7 @@ end
     @test length(collect(methods(TestMethods))) == 1
 end
 
-@test_nowarn @proto struct TestMethods
+@proto struct TestMethods
         a
         b
 end
