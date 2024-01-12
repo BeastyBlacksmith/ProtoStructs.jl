@@ -168,7 +168,7 @@ end
     end
 end
 
-@testset "Constuctor updating"
+@testset "Constuctor updating" begin
     @proto struct TestMethods end
     @test length(collect(methods(TestMethods))) == 1
     @test_nowarn @proto struct TestMethods
