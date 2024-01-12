@@ -167,3 +167,13 @@ end
         @test_throws ErrorException cf.C = 5
     end
 end
+
+@testset "Constuctor updating"
+    @proto struct TestMethods end
+    @test length(collect(methods(TestMethods))) == 1
+    @test_nowarn @proto struct TestMethods
+        a
+        b
+    end
+    @test length(collect(methods(TestMethods))) == 2
+end
