@@ -170,12 +170,16 @@ end
 
 @proto struct TestMethods end
 
-@testset "Constuctor updating" begin
+@testset "Constuctor updating I" begin
     @test length(collect(methods(TestMethods))) == 1
-    @test_nowarn @proto struct TestMethods
+end
+
+@test_nowarn @proto struct TestMethods
         a
         b
-    end
+end
+
+@testset "Constuctor updating II" begin
     @test length(collect(methods(TestMethods))) == 2
 end
 
