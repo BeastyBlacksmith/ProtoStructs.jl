@@ -116,8 +116,12 @@ macro proto(expr)
                         error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
                     end
                     the_methods = collect(methods($name))
-                    Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[2])
+                    if length(the_methods) >= 1
+                        Base.delete_method(the_methods[1])
+                    end
+                    if length(the_methods) >= 2
+                        Base.delete_method(the_methods[2])
+                    end
                 end
 
                 function $name($(fields...)) where {$(type_parameters...)}
@@ -181,8 +185,12 @@ macro proto(expr)
                         error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
                     end
                     the_methods = collect(methods($name))
-                    Base.delete_method(the_methods[1])
-                    Base.delete_method(the_methods[2])
+                    if length(the_methods) >= 1
+                        Base.delete_method(the_methods[1])
+                    end
+                    if length(the_methods) >= 2
+                        Base.delete_method(the_methods[2])
+                    end
                 end
 
                 function $name($(fields...)) where {$(type_parameters...)}

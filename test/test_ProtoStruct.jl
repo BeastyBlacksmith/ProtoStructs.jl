@@ -168,6 +168,21 @@ end
     end
 end
 
+@proto struct TestMethods end
+
+@testset "Constuctor updating I" begin
+    @test length(collect(methods(TestMethods))) == 1
+end
+
+@proto struct TestMethods
+        a
+        b
+end
+
+@testset "Constuctor updating II" begin
+    @test length(collect(methods(TestMethods))) == 2
+end
+
 """
 This is a docstring.
 """
