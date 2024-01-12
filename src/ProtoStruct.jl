@@ -108,7 +108,7 @@ macro proto(expr)
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
+                    Base.@__doc__ struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end
                 else
@@ -177,7 +177,7 @@ macro proto(expr)
         else
             quote
                 if !@isdefined $name
-                    struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
+                    Base.@__doc__ struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
                         properties::NT
                     end
                 else

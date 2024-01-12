@@ -177,3 +177,14 @@ end
     end
     @test length(collect(methods(TestMethods))) == 2
 end
+
+"""
+This is a docstring.
+"""
+@proto struct DocTestMe
+    A::Int
+end
+
+@testset "Docstring" begin
+    @test string(@doc DocTestMe) == "This is a docstring.\n"
+end
