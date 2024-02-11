@@ -196,11 +196,11 @@ end
 
 # revisableproto macro tests
 
-@revisableproto struct SimpleTestMe2
+@proto :revisable struct SimpleTestMe2
     A::Int
 end
 
-@revisableproto struct TestMe2{T, V <: Real}
+@proto :revisable struct TestMe2{T, V <: Real}
     A::Int
     B
     C::T
@@ -229,7 +229,7 @@ end
     @test propertynames(test_me) == (:A, :B, :C, :D)
 end
 
-@revisableproto struct TestMe2{T, V <: Real}
+@proto :revisable struct TestMe2{T, V <: Real}
     A::Int
     B
     C::T
@@ -243,7 +243,7 @@ test_me_kw2 = @test_nowarn TestMe2(A=1, B="2", C=complex(1), D=5, E="tadaa")
     @test length(methods(TestMe2)) == 2
 end
 
-@revisableproto struct TestKw2{T, V <: Real}
+@proto :revisable struct TestKw2{T, V <: Real}
     A::Int = 1
     B = :no
     C::T = nothing
@@ -261,7 +261,7 @@ end
     @test tw.E == "yepp"
 end
 
-@revisableproto @kwdef struct TestMacroOutside2
+@proto :revisable @kwdef struct TestMacroOutside2
     A::Int = 1
 end
 
@@ -287,7 +287,7 @@ end
 
 abstract type AbstractMutation2 end
 
-@revisableproto mutable struct TestParametricMutation2{T, V <: Real} <: AbstractMutation2
+@proto :revisable mutable struct TestParametricMutation2{T, V <: Real} <: AbstractMutation2
     A::Int = 1
     B = :no
     C::T = nothing
@@ -322,7 +322,7 @@ end
     @test !(tpm3 isa TestParametricMutation2{Nothing, Int})
 end
 
-@revisableproto mutable struct TestParametricMutation2{V <: Integer} <: AbstractMutation2
+@proto :revisable mutable struct TestParametricMutation2{V <: Integer} <: AbstractMutation2
     A::Int = 1
     B = :no
     C::Nothing = nothing
@@ -337,7 +337,7 @@ end
 end
 
 @static if VERSION >= v"1.8"
-    @revisableproto mutable struct WithConstFields2{T}
+    @proto :revisable mutable struct WithConstFields2{T}
         A::Int = 1
         const B = :no
         const C::T = 3
@@ -357,13 +357,13 @@ end
     end
 end
 
-@revisableproto struct TestMethods2 end
+@proto :revisable struct TestMethods2 end
 
 @testset "Constuctor updating I" begin
     @test length(collect(methods(TestMethods2))) == 1
 end
 
-@revisableproto struct TestMethods2
+@proto :revisable struct TestMethods2
         a
         b
 end
@@ -371,4 +371,3 @@ end
 @testset "Constuctor updating II" begin
     @test length(collect(methods(TestMethods2))) == 2
 end
-
