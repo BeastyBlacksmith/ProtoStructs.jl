@@ -31,7 +31,7 @@ c = DevType(2, 4.0, nothing)
 
 Redefine at will, but remove the `@proto` macro after developing to ensure correctness and improve performance of your code.
 
-# Compatibility with Revise.jl
+## Compatibility with Revise.jl
 
 For workflows using `Revise.jl` use the `@revisableproto` macro. This works almost equivalently to `@proto`
 except that docstring can't be attached to structs.
