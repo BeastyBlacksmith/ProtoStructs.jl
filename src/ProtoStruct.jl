@@ -1,7 +1,13 @@
 
-macro revisableproto(expr)
-    @eval __module__ $(_proto(expr))
-    return
+macro proto(revisable, expr)
+    if revisable == QuoteNode(:revisable)
+        @eval __module__ $(_proto(expr))
+        return
+    elseif revisable == QuoteNode(:standard)
+        return esc(_proto(expr))
+    else
+        error("Version not recognized: use :standard or :revisable")
+    end
 end
 
 macro proto(expr)
@@ -241,4 +247,3 @@ function _proto(expr)
         end
     return ex
 end
-
