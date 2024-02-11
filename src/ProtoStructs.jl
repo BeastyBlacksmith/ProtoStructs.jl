@@ -1,6 +1,6 @@
 module ProtoStructs
 
-export @proto
+export @proto, @revisableproto
 
 include("ProtoStruct.jl")
 

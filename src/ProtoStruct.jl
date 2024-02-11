@@ -1,5 +1,14 @@
 
+macro revisableproto(expr)
+    @eval __module__ $(_proto(expr))
+    return
+end
+
 macro proto(expr)
+    return esc(_proto(expr))
+end
+
+function _proto(expr)
     if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
         expr = expr.args[3]
     end
@@ -230,6 +239,6 @@ macro proto(expr)
                 end
             end
         end
-    return esc(ex)
+    return ex
 end
 
