@@ -33,9 +33,7 @@ Redefine at will, but remove the `@proto` macro after developing to ensure corre
 
 ## Compatibility with Revise.jl
 
-For workflows using `Revise.jl` use the `@revisableproto` macro. This works almost equivalently to `@proto`
-except that docstring can't be attached to structs.
-
+For workflows using `Revise.jl` use the `@proto` macro passing `:revisable` as first argument. 
 
 ---
 
