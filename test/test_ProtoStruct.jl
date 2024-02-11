@@ -186,7 +186,7 @@ end
 """
 This is a docstring.
 """
-@proto struct DocTestMe
+@proto :standard struct DocTestMe
     A::Int
 end
 
