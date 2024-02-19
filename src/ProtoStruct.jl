@@ -6,10 +6,8 @@ function checkrev()
     revise_pkgid in keys(Base.loaded_modules) || return false 
     d = @__DIR__ 
     f = splitpath(@__FILE__)[end]
-
     watched_files = getproperty(Base.loaded_modules[revise_pkgid], :watched_files)
     d in keys(watched_files) || return false
-
     trackedfiles = watched_files[d].trackedfiles
     return f in keys(trackedfiles)
 end
