@@ -1,5 +1,29 @@
 
+const revise_uuid = Base.UUID("295af30f-e4ad-537b-8983-00126c2a3abe")
+const revise_pkgid = Base.PkgId(revise_uuid, "Revise")
+
+function checkrev()
+    revise_pkgid in keys(Base.loaded_modules) || return false 
+    d = @__DIR__ 
+    f = splitpath(@__FILE__)[end]
+
+    watched_files = getproperty(Base.loaded_modules[revise_pkgid], :watched_files)
+    d in keys(watched_files) || return false
+
+    trackedfiles = watched_files[d].trackedfiles
+    return f in keys(trackedfiles)
+end
+
 macro proto(expr)
+    if checkrev()
+        @eval __module__ $(_proto(expr))
+        return
+    else
+        return esc(_proto(expr))
+    end
+end
+
+function _proto(expr)
     if expr.head == :macrocall && expr.args[1] == Symbol("@kwdef")
         expr = expr.args[3]
     end
@@ -230,6 +254,6 @@ macro proto(expr)
                 end
             end
         end
-    return esc(ex)
+    return ex
 end
 
