@@ -95,11 +95,12 @@ function _proto(expr)
                   )
 
     field_names = keys(field_info)
-    const_field_names = [name for (; name=name, isconst=isconst) in field_info if isconst]
+    const_field_names = [info.name for info in field_info if isconst]
 
     if ismutable
-        field_types = :(Tuple{$((isconst ? :($type where {$type}) : :(Base.RefValue{$type} where {$type})
-                                 for (; isconst, type) in field_info)...)})
+        field_types = :(Tuple{$((info.isconst ? :($(info.type) where {$(info.type)}) :
+            :(Base.RefValue{$(info.type)} where {$(info.type)})
+                                 for info in field_info)...)})
         fields_with_ref = (x in const_field_names ? :($x=$x) : (:($x=Ref($x)))
                            for x in field_names)
     else
@@ -299,9 +300,10 @@ end
 
 function runtime_field_info(info, params)
     return :((;
-              $((:($name = (; name = $(QuoteNode(name)), type = $(protofieldtype(type, params)), isconst = $isconst,
-                            hasdefault = $hasdefault, default = $default))
-                 for (; name, type, isconst, hasdefault, default) in info)...),
+              $((:($name = (; name = $(QuoteNode(i.name)),
+                            type = $(protofieldtype(i.type, params)), isconst = $(i.isconst),
+                            hasdefault = $(i.hasdefault), default = $(i.default)))
+                 for i in info)...),
         ))
 end
 
