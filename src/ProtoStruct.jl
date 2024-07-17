@@ -95,7 +95,7 @@ function _proto(expr)
                   )
 
     field_names = keys(field_info)
-    const_field_names = [name for (; name, isconst) in field_info if isconst]
+    const_field_names = [name for (; name=name, isconst=isconst) in field_info if isconst]
 
     if ismutable
         field_types = :(Tuple{$((isconst ? :($type where {$type}) : :(Base.RefValue{$type} where {$type})
