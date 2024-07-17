@@ -331,36 +331,36 @@ function updateproto(o::T) where {T}
     return true
 end
 
-function updatefield(o, oldfields, (; name, type, isconst, hasdefault, default))
+function updatefield(o, oldfields, info)
     local err = ""
-    local orig_type = type
+    local orig_type = info.type
 
-    if type isa Integer
-        type = typeof(o).parameters[type]
+    if info.type isa Integer
+        info.type = typeof(o).parameters[info.type]
     end
-    if !isconst
-        type = Ref{type}
+    if !info.isconst
+        info.type = Ref{info.type}
     end
-    if name ∈ keys(oldfields)
+    if info.name ∈ keys(oldfields)
         try
-            return updatevalue(type, oldfields[name])
+            return updatevalue(info.type, oldfields[info.name])
         catch
-            err = "Could not convert old value $(oldfields[name]) to type $type"
+            err = "Could not convert old value $(oldfields[info.name]) to type $info.type"
         end
     end
-    if !hasdefault
+    if !info.hasdefault
         try
-            default = typemin(orig_type)
+            info.default = typemin(orig_type)
             if !isempty(err)
-                err = "$err and no default value for field $name, choosing typemin"
+                err = "$err and no default value for field $info.name, choosing typemin"
             else
-                err = "No default value for field $name, choosing typemin"
+                err = "No default value for field $info.name, choosing typemin"
             end
         catch
             if !isempty(err)
-                error("$err and no default value or typemin for field $name")
+                error("$err and no default value or typemin for field $info.name")
             else
-                error("No default value or typemin for field $name")
+                error("No default value or typemin for field $info.name")
             end
         end
     elseif !isempty(err)
@@ -368,7 +368,7 @@ function updatefield(o, oldfields, (; name, type, isconst, hasdefault, default))
     end
     !isempty(err) &&
         @warn err
-    return default
+    return info.default
 end
 
 updatevalue(newtype, value) = convert(newtype, value)
