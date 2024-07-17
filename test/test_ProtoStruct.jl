@@ -193,3 +193,26 @@ end
 @testset "Docstring" begin
     @test string(@doc DocTestMe) == "This is a docstring.\n"
 end
+
+@proto @kwdef struct A{T}
+    x::Array{T} = T[]
+end
+
+a = A{Int}()
+
+@test a.x == []
+
+@proto @kwdef struct A{T}
+    x::Array{T} = T[]
+    y::Int = 3
+end
+
+@test a.y == 3
+
+@test A(; x = ["hello"]).x == ["hello"]
+
+@proto @kwdef struct A{T}
+    y::Int = 3
+end
+
+@test_throws ErrorException a.x

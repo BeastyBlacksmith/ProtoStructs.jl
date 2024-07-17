@@ -1,9 +1,10 @@
 
 const revise_uuid = Base.UUID("295af30f-e4ad-537b-8983-00126c2a3abe")
+using Base: nothing_sentinel
 const revise_pkgid = Base.PkgId(revise_uuid, "Revise")
 
 "Definitions of proto structs so we can upgrade instances on demand"
-const DEFS = Dict{Symbol, @NamedTuple{world::UInt64, fields::NamedTuple}}()
+const DEFS = Dict{Symbol, @NamedTuple{world::UInt64, paramcount::Int, fields::NamedTuple}}()
 
 function checkrev()
     revise_pkgid in keys(Base.loaded_modules) || return false 
@@ -98,11 +99,9 @@ function _proto(expr)
     const_field_names = [info.name for info in field_info if info.isconst]
 
     if ismutable
-        field_types = :(Tuple{$((info.isconst ? :($(info.type) where {$(info.type)}) :
-            :(Base.RefValue{$(info.type)} where {$(info.type)})
+        field_types = :(Tuple{$((info.isconst ? :($(info.type)) :
+            :(Base.RefValue{$(info.type)})
                                  for info in field_info)...)})
-        fields_with_ref = (x in const_field_names ? :($x=$x) : (:($x=Ref($x)))
-                           for x in field_names)
     else
         field_types = :(Tuple{$(getindex.(values(field_info), :type)...)})
     end
@@ -140,6 +139,7 @@ function _proto(expr)
               zip(field_info, getdefault.(params_ex.args)))...,
          )
     world = Base.get_world_counter()
+    UNIQ = gensym()
 
     ex = if ismutable
             quote
@@ -162,41 +162,65 @@ function _proto(expr)
                 end
 
                 function $name($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names}(($(fields_with_ref...),))
+                    v = (; $((Expr(:kw, arg,
+                        if arg ∈ const_field_names
+                            :(convert($type, $arg))
+                        else
+                            :(Base.Ref(convert($(field_info[arg].type), $arg)))
+                        end
+                    )
+                              for (type, arg) in zip(
+                                  field_types.args[2:end],
+                                  field_names,))...))
                     return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names}(($(fields_with_ref...),))
+                    v = (; $((Expr(:kw, arg,
+                        if arg ∈ const_field_names
+                            :(convert($type, $arg))
+                        else
+                            :(Base.Ref(convert($(field_info[arg].type), $arg)))
+                        end
+                    )
+                              for (type, arg) in zip(
+                                  field_types.args[2:end],
+                                  field_names,))...))
                     return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name($params_ex)
-                    return $name($((cvt(field_info, arg, type_parameter_names) for arg in call_args)...))
+                    return $name($(call_args...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
-                    $name{$(type_parameter_names...)}($((cvt(field_info, arg, type_parameter_names)
-                                                         for arg in call_args)...))
+                    $name{$(type_parameter_names...)}($(call_args...))
+                end
+
+                $((:(function $ProtoStructs.default_for(::Type{$UNIQ}, ::Type{Val{$(info.name)}}) where {$UNIQ <: $name, $(info.name)}
+                       local fieldtypes = $ProtoStructs.property_types($name, $([Any for i in type_parameter_names]...))
+                           
+                         $(info.hasdefault ? info.default : nothing)
+                   end)
+                   for info in field_info)...)
+
+                function $ProtoStructs.property_types(::Type{$UNIQ}, $(type_parameter_names...)) where {$UNIQ <: $name}
+                    return NamedTuple{$field_names, $field_types}
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
                     $ProtoStructs.updateproto(o)
                     p = getproperty(getfield(o, :properties)[], s)
-                    if p isa Base.RefValue
-                        p[]
-                    else
-                        p
-                    end
+                    s ∈ $const_field_names ? p : p[]
                 end
 
                 function Base.setproperty!(o::$name, s::Symbol, v)
                     $ProtoStructs.updateproto(o)
                     p = getproperty(getfield(o, :properties)[], s)
-                    if p isa Base.RefValue
-                        p[] = v
-                    else
+                    if s ∈ $const_field_names
                         error("const field $s of type ", $name, " cannot be changed")
+                    else
+                        p[] = v
                     end
                 end
 
@@ -218,7 +242,8 @@ function _proto(expr)
                 $ProtoStructs.DEFS[$(QuoteNode(name))] =
                     (;
                      world=$world,
-                     fields=$(runtime_field_info(field_info, type_parameter_names)),
+                     paramcount=$(length(type_parameters)),
+                     fields=$(runtime_field_info(field_info)),
                      )
             end
         else
@@ -242,22 +267,38 @@ function _proto(expr)
                 end
 
                 function $name($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    v = (; $((Expr(:kw, arg, :(convert($type, $arg)))
+                              for (type, arg) in zip(
+                                  field_types.args[2:end],
+                                  field_names,))...))
                     return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
-                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    v = (; $((Expr(:kw, arg, :(convert($type, $arg)))
+                              for (type, arg) in zip(
+                                  field_types.args[2:end],
+                                  field_names,))...))
                     return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name($params_ex)
-                    return $name($((cvt(field_info, arg, type_parameter_names) for arg in call_args)...))
+                    return $name($(call_args...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
-                    $name{$(type_parameter_names...)}($((cvt(field_info, arg, type_parameter_names)
-                                                         for arg in call_args)...))
+                    $name{$(type_parameter_names...)}($(call_args...))
+                end
+
+                $((:(function $ProtoStructs.default_for(::Type{$UNIQ}, ::Type{Val{$(info.name)}}) where {$UNIQ <: $name, $(info.name)}
+                       local fieldtypes = $ProtoStructs.property_types($name, $([Any for i in type_parameter_names]...))
+                           
+                         $(info.hasdefault ? info.default : nothing)
+                   end)
+                   for info in field_info)...)
+
+                function $ProtoStructs.property_types(::Type{$UNIQ}, $(type_parameter_names...)) where {$UNIQ <: $name}
+                    return NamedTuple{$field_names, $field_types}
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
@@ -283,7 +324,8 @@ function _proto(expr)
                 $ProtoStructs.DEFS[$(QuoteNode(name))] =
                     (;
                      world=$world,
-                     fields=$(runtime_field_info(field_info, type_parameter_names)),
+                     paramcount=$(length(type_parameter_names)),
+                     fields=$(runtime_field_info(field_info)),
                      )
             end
         end
@@ -298,11 +340,12 @@ function cvt(info, arg, params)
     end
 end
 
-function runtime_field_info(info, params)
+function runtime_field_info(info)
     return :((;
               $((:($(i.name) = (; name = $(QuoteNode(i.name)),
-                            type = $(protofieldtype(i.type, params)), isconst = $(i.isconst),
-                            hasdefault = $(i.hasdefault), default = $(i.default)))
+                                isconst = $(i.isconst),
+                                hasdefault = $(i.hasdefault),
+                                ))
                  for i in info)...),
         ))
 end
@@ -320,47 +363,63 @@ function getdefault(ex)
     return false, nothing
 end
 
+function property_types end
+
+function default_for(::T, field::Symbol) where {T}
+    return default_for(T, field)
+end
+
+function default_for(::Type{T}, field::Symbol) where {T}
+    return default_for(T, Val{field})
+end
+
 function updateproto(o::T) where {T}
-    local curtime, fields = DEFS[nameof(T)]
+    local curtime, paramcount, fields = DEFS[nameof(T)]
     getfield(o, :world)[] == curtime &&
         return false
-    local oldfields = getfield(o, :properties)[]
-    getfield(o, :properties)[] = (; (summary.name => updatefield(o, oldfields, summary) for summary in fields)...)
-    println("Warning, T has changed")
     getfield(o, :world)[] = curtime
+    # get type for old struct's new properties
+    local raw_prop_type = property_types(T, T.parameters[1:paramcount]...)
+    local prop_types = (; zip(raw_prop_type.parameters[1], raw_prop_type.parameters[2].parameters)...)
+    local oldfields = getfield(o, :properties)[]
+
+    getfield(o, :properties)[] = (; (name => updatefield(o, type, fields[name], oldfields)
+                                     for (name, type) in pairs(prop_types))...)
+    @info "Warning, T has changed"
     return true
 end
 
-function updatefield(o, oldfields, info)
+"""
+newtype contains the fully instantiated type for this struct
+"""
+function updatefield(::T, newtype, info, oldfields) where {T}
     local err = ""
-    local orig_type = info.type
+    local orig_type = newtype
+    local default = default_for(T, info.name)
 
-    if info.type isa Integer
-        info.type = typeof(o).parameters[info.type]
-    end
     if !info.isconst
-        info.type = Ref{info.type}
+        newtype = Ref{newtype}
     end
     if info.name ∈ keys(oldfields)
         try
-            return updatevalue(info.type, oldfields[info.name])
+            return updatevalue(newtype, oldfields[info.name])
         catch
-            err = "Could not convert old value $(oldfields[info.name]) to type $info.type"
+            err = "Could not convert old value $(oldfields[info.name]) to type $newtype"
         end
     end
     if !info.hasdefault
         try
-            info.default = typemin(orig_type)
+            default = typemin(orig_type)
             if !isempty(err)
-                err = "$err and no default value for field $info.name, choosing typemin"
+                err = "$err and no default value for field $(info.name), choosing typemin"
             else
-                err = "No default value for field $info.name, choosing typemin"
+                err = "No default value for field $(info.name), choosing typemin"
             end
         catch
             if !isempty(err)
-                error("$err and no default value or typemin for field $info.name")
+                error("$err and no default value or typemin for field $(info.name)")
             else
-                error("No default value or typemin for field $info.name")
+                error("No default value or typemin for field $(info.name)")
             end
         end
     elseif !isempty(err)
@@ -368,7 +427,7 @@ function updatefield(o, oldfields, info)
     end
     !isempty(err) &&
         @warn err
-    return info.default
+    return default
 end
 
 updatevalue(newtype, value) = convert(newtype, value)
