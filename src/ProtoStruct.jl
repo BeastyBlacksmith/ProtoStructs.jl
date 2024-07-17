@@ -95,7 +95,7 @@ function _proto(expr)
                   )
 
     field_names = keys(field_info)
-    const_field_names = [info.name for info in field_info if isconst]
+    const_field_names = [info.name for info in field_info if info.isconst]
 
     if ismutable
         field_types = :(Tuple{$((info.isconst ? :($(info.type) where {$(info.type)}) :
@@ -300,7 +300,7 @@ end
 
 function runtime_field_info(info, params)
     return :((;
-              $((:($name = (; name = $(QuoteNode(i.name)),
+              $((:($(i.name) = (; name = $(QuoteNode(i.name)),
                             type = $(protofieldtype(i.type, params)), isconst = $(i.isconst),
                             hasdefault = $(i.hasdefault), default = $(i.default)))
                  for i in info)...),
