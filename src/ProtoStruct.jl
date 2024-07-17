@@ -2,6 +2,9 @@
 const revise_uuid = Base.UUID("295af30f-e4ad-537b-8983-00126c2a3abe")
 const revise_pkgid = Base.PkgId(revise_uuid, "Revise")
 
+"Definitions of proto structs so we can upgrade instances on demand"
+const DEFS = Dict{Symbol, @NamedTuple{world::UInt64, fields::NamedTuple}}()
+
 function checkrev()
     revise_pkgid in keys(Base.loaded_modules) || return false 
     d = @__DIR__ 
@@ -81,34 +84,36 @@ function _proto(expr)
                     end
                 end
     i = 0
-    field_info = map(fields) do field
+    field_info = (; (map(fields) do field
                         i += 1
                         if field isa Symbol
-                            return (field, Any, const_fields[i])
+                            return field => (; name=field, type=Any, isconst=!ismutable || const_fields[i])
                         else
-                            return (field.args[1], field.args[2], const_fields[i])
+                            return field.args[1] => (; name=field.args[1], type=field.args[2], isconst=!ismutable || const_fields[i])
                         end
-                    end
+                     end)...,
+                  )
 
-    field_names = Tuple(getindex.(field_info, 1))
-    const_field_names = [f for (f, fi) in zip(field_names, field_info) if fi[3] == true]
+    field_names = keys(field_info)
+    const_field_names = [name for (; name, isconst) in field_info if isconst]
 
     if ismutable
-        field_types = :(Tuple{$((x in const_field_names ? :($x where {$x}) : (:(Base.RefValue{$x} where {$x}))
-                                for x in getindex.(field_info, 2))...)})
+        field_types = :(Tuple{$((isconst ? :($type where {$type}) : :(Base.RefValue{$type} where {$type})
+                                 for (; isconst, type) in field_info)...)})
         fields_with_ref = (x in const_field_names ? :($x=$x) : (:($x=Ref($x)))
                            for x in field_names)
     else
-        field_types = :(Tuple{$(getindex.(field_info, 2)...)})
+        field_types = :(Tuple{$(getindex.(values(field_info), :type)...)})
     end
 
-    field_subtype_info = map(getindex.(field_info, 2)) do ft
-        if ft in type_parameter_names
-            return type_parameter_types[ft]
-        else
-            return ft
-        end
-    end
+    # UNUSED
+    #field_subtype_info = map(getindex.(field_info, 2)) do ft
+    #    if ft in type_parameter_names
+    #        return type_parameter_types[ft]
+    #    else
+    #        return ft
+    #    end
+    #end
 
     params_ex = Expr(:parameters)
     call_args = Any[]
@@ -126,12 +131,21 @@ function _proto(expr)
     N_any_params = length(default_params) - length(type_parameter_names)
     N_any_params <= 0 && error("The number of parameters of the proto struct is too high")
     any_params = [:(Any) for _ in 1:N_any_params]
+    # merge default values into field_info
+    field_info =
+        (;
+         (name => (; name, type, isconst, hasdefault, default)
+          for ((name, type, isconst), (hasdefault, default)) in
+              zip(field_info, getdefault.(params_ex.args)))...,
+         )
+    world = Base.get_world_counter()
 
     ex = if ismutable
             quote
                 if !@isdefined $name
-                    Base.@__doc__ struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
-                        properties::NT
+                    Base.@__doc__ struct $name{$(default_params...)} <: $abstract_type
+                        world::Ref{UInt64}
+                        properties::Ref{NamedTuple}
                     end
                 else
                     if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
@@ -148,24 +162,26 @@ function _proto(expr)
 
                 function $name($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names}(($(fields_with_ref...),))
-                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names}(($(fields_with_ref...),))
-                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name($params_ex)
-                    return $name($(call_args...))
+                    return $name($((cvt(field_info, arg, type_parameter_names) for arg in call_args)...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
-                    $name{$(type_parameter_names...)}($(call_args...))
+                    $name{$(type_parameter_names...)}($((cvt(field_info, arg, type_parameter_names)
+                                                         for arg in call_args)...))
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
-                    p = getproperty(getfield(o, :properties), s)
+                    $ProtoStructs.updateproto(o)
+                    p = getproperty(getfield(o, :properties)[], s)
                     if p isa Base.RefValue
                         p[]
                     else
@@ -174,7 +190,8 @@ function _proto(expr)
                 end
 
                 function Base.setproperty!(o::$name, s::Symbol, v)
-                    p = getproperty(getfield(o, :properties), s)
+                    $ProtoStructs.updateproto(o)
+                    p = getproperty(getfield(o, :properties)[], s)
                     if p isa Base.RefValue
                         p[] = v
                     else
@@ -183,24 +200,32 @@ function _proto(expr)
                 end
 
                 function Base.propertynames(o::$name)
-                    return propertynames(getfield(o, :properties))
+                    $ProtoStructs.updateproto(o)
+                    return propertynames(getfield(o, :properties)[])
                 end
 
                 function Base.show(io::IO, o::$name)
-                    vals = join([x isa Base.RefValue ? (x[] isa String ? "\"$(x[])\"" : x[]) : x for x in getfield(o, :properties)], ", ")
-                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    $ProtoStructs.updateproto(o)
+                    vals = join([x isa Base.RefValue ? (x[] isa String ? "\"$(x[])\"" : x[]) : x for x in getfield(o, :properties)[]], ", ")
+                    params = typeof(o).parameters[1:end-$N_any_params]
                     if isempty(params)
                         print(io, string($name), "($vals)")
                     else
                         print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
                     end
                 end
+                $ProtoStructs.DEFS[$(QuoteNode(name))] =
+                    (;
+                     world=$world,
+                     fields=$(runtime_field_info(field_info, type_parameter_names)),
+                     )
             end
         else
             quote
                 if !@isdefined $name
-                    Base.@__doc__ struct $name{$(default_params...), NT<:NamedTuple} <: $abstract_type
-                        properties::NT
+                    Base.@__doc__ struct $name{$(default_params...)} <: $abstract_type
+                        world::Ref{UInt64}
+                        properties::Ref{NamedTuple}
                     end
                 else
                     if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
@@ -217,41 +242,134 @@ function _proto(expr)
 
                 function $name($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{$(type_parameter_names...), $(any_params...), typeof(v)}(v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
                 end
 
                 function $name($params_ex)
-                    return $name($(call_args...))
+                    return $name($((cvt(field_info, arg, type_parameter_names) for arg in call_args)...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
-                    $name{$(type_parameter_names...)}($(call_args...))
+                    $name{$(type_parameter_names...)}($((cvt(field_info, arg, type_parameter_names)
+                                                         for arg in call_args)...))
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
-                    return getproperty(getfield(o, :properties), s)
+                    $ProtoStructs.updateproto(o)
+                    return getproperty(getfield(o, :properties)[], s)
                 end
 
                 function Base.propertynames(o::$name)
-                    return propertynames(getfield(o, :properties))
+                    $ProtoStructs.updateproto(o)
+                    return propertynames(getfield(o, :properties)[])
                 end
 
                 function Base.show(io::IO, o::$name)
-                    vals = join([x isa String ? "\"$x\"" : x for x in getfield(o, :properties)], ", ")
-                    params = typeof(o).parameters[1:end-$N_any_params-1]
+                    $ProtoStructs.updateproto(o)
+                    vals = join([x isa String ? "\"$x\"" : x for x in getfield(o, :properties)[]], ", ")
+                    params = typeof(o).parameters[1:end-$N_any_params]
                     if isempty(params)
                         print(io, string($name), "($vals)")
                     else
                         print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
                     end
                 end
+                $ProtoStructs.DEFS[$(QuoteNode(name))] =
+                    (;
+                     world=$world,
+                     fields=$(runtime_field_info(field_info, type_parameter_names)),
+                     )
             end
         end
     return ex
 end
 
+function cvt(info, arg, params)
+    if info[arg].type ∈ params
+        return arg
+    else
+        return :(convert($(info[arg].type), $arg))
+    end
+end
+
+function runtime_field_info(info, params)
+    return :((;
+              $((:($name = (; name = $(QuoteNode(name)), type = $(protofieldtype(type, params)), isconst = $isconst,
+                            hasdefault = $hasdefault, default = $default))
+                 for (; name, type, isconst, hasdefault, default) in info)...),
+        ))
+end
+
+protofieldtype(type, params) = type ∈ params ? findfirst(==(type), params) : type
+
+type_params(names) = :((; $((:($name = $name) for name in names)...) ))
+
+function getdefault(ex)
+    ex isa Expr && ex.head == :kw &&
+        return true, ex.args[2]
+    ex isa Symbol &&
+        return false, nothing
+    @warn "Cannot compute default for field $ex"
+    return false, nothing
+end
+
+function updateproto(o::T) where {T}
+    local curtime, fields = DEFS[nameof(T)]
+    getfield(o, :world)[] == curtime &&
+        return false
+    local oldfields = getfield(o, :properties)[]
+    getfield(o, :properties)[] = (; (summary.name => updatefield(o, oldfields, summary) for summary in fields)...)
+    println("Warning, T has changed")
+    getfield(o, :world)[] = curtime
+    return true
+end
+
+function updatefield(o, oldfields, (; name, type, isconst, hasdefault, default))
+    local err = ""
+    local orig_type = type
+
+    if type isa Integer
+        type = typeof(o).parameters[type]
+    end
+    if !isconst
+        type = Ref{type}
+    end
+    if name ∈ keys(oldfields)
+        try
+            return updatevalue(type, oldfields[name])
+        catch
+            err = "Could not convert old value $(oldfields[name]) to type $type"
+        end
+    end
+    if !hasdefault
+        try
+            default = typemin(orig_type)
+            if !isempty(err)
+                err = "$err and no default value for field $name, choosing typemin"
+            else
+                err = "No default value for field $name, choosing typemin"
+            end
+        catch
+            if !isempty(err)
+                error("$err and no default value or typemin for field $name")
+            else
+                error("No default value or typemin for field $name")
+            end
+        end
+    elseif !isempty(err)
+        err = "$err, using default instead"
+    end
+    !isempty(err) &&
+        @warn err
+    return default
+end
+
+updatevalue(newtype, value) = convert(newtype, value)
+updatevalue(::Type{Ref{T}}, value::Ref{U}) where {T, U} = Ref{T}(updatevalue(T, value[]))
+updatevalue(::Type{T}, value::Ref{U}) where {T, U} = updatevalue(T, value[])
+updatevalue(::Type{Ref{T}}, value::U) where {T, U} = Ref{T}(updatevalue(T, value))
