@@ -171,6 +171,8 @@ end
     end
 end
 
+@static if VERSION <= v"1.10"
+
 @proto struct TestMethods end
 
 @testset "Constuctor updating I" begin
@@ -184,6 +186,8 @@ end
 
 @testset "Constuctor updating II" begin
     @test length(collect(methods(TestMethods))) == 2
+end
+
 end
 
 @static if VERSION == v"1.10"
