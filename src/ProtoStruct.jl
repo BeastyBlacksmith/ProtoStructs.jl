@@ -3,9 +3,14 @@ const revise_uuid = Base.UUID("295af30f-e4ad-537b-8983-00126c2a3abe")
 using Base: nothing_sentinel
 const revise_pkgid = Base.PkgId(revise_uuid, "Revise")
 
-const ProtoInfo = @NamedTuple{world::UInt64, paramcount::Int, fields::NamedTuple}
+Base.@kwdef struct ProtoInfo
+    world::UInt64
+    paramcount::Int
+    fields::NamedTuple
+end
+
 "Definitions of proto structs so we can upgrade instances on demand"
-const DEFS = Dict{Symbol, ProtoInfo}()
+const DEFS = Dict{Tuple{Module,Symbol}, ProtoInfo}()
 
 function checkrev()
     revise_pkgid in keys(Base.loaded_modules) || return false 
@@ -49,6 +54,14 @@ function local_kwdef!(expr, params, calls)
         expr.args[i] = newexpr
         push!(calls, name)
     end
+end
+
+function defsfor(t::Type)
+    get(DEFS, (parentmodule(t), nameof(t)), nothing)
+end
+
+function setdefs!(t::Type, info::ProtoInfo)
+    DEFS[(parentmodule(t), nameof(t))] = info
 end
 
 macro proto(expr)
@@ -186,7 +199,7 @@ function _proto(expr)
 
                 function $(Symbol("new_$name"))($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names}(($(fields_with_ref...),))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.defsfor($name)), v)
                 end
 
                 function $name($(field_names...))
@@ -202,7 +215,7 @@ function _proto(expr)
                         (info.isconst ? :($ProtoStructs.convert_field($name, $(info.name), $type)) :
                             :(Ref{$type}($ProtoStructs.convert_field($name, $(info.name), $type)))
                          for (type, info) in zip(base_field_types.args[2:end], field_info))...),))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.defsfor($name)), v)
                 end
 
                 function $name($params_ex) where {$(type_parameters...)}
@@ -254,12 +267,11 @@ function _proto(expr)
                         print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
                     end
                 end
-                $ProtoStructs.DEFS[$(QuoteNode(name))] =
-                    (;
-                     world=$world,
-                     paramcount=$(length(type_parameters)),
-                     fields=$(runtime_field_info(field_info)),
-                     )
+                $ProtoStructs.setdefs!($name, $ProtoStructs.ProtoInfo(
+                    world=$world,
+                    paramcount=$(length(type_parameters)),
+                    fields=$(runtime_field_info(field_info)),
+                ))
             end
         else
             quote
@@ -277,7 +289,7 @@ function _proto(expr)
 
                 function $(Symbol("new_$name"))($(fields...)) where {$(type_parameters...)}
                     v = NamedTuple{$field_names, $field_types}(($(field_names...),))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.defsfor($name)), v)
                 end
 
                 function $name($(field_names...))
@@ -292,7 +304,7 @@ function _proto(expr)
                     v = NamedTuple{$field_names, $field_types}(($(
                         (:($ProtoStructs.convert_field($name, $arg, $type))
                          for (type, arg) in zip(field_types.args[2:end], field_names))...),))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.defsfor($name)), v)
                 end
 
                 function $name($params_ex) where {$(type_parameters...)}
@@ -338,12 +350,11 @@ function _proto(expr)
                         print(io, string($name, "{", join(params, ", "), "}"), "($vals)")
                     end
                 end
-                $ProtoStructs.DEFS[$(QuoteNode(name))] =
-                    (;
-                     world=$world,
-                     paramcount=$(length(type_parameters)),
-                     fields=$(runtime_field_info(field_info)),
-                     )
+                $ProtoStructs.setdefs!($name, $ProtoStructs.ProtoInfo(
+                    world=$world,
+                    paramcount=$(length(type_parameters)),
+                    fields=$(runtime_field_info(field_info)),
+                ))
             end
         end
     return ex
@@ -371,18 +382,17 @@ end
 function property_types end
 
 function updateproto(o::T) where {T}
-    local defs = DEFS[nameof(T)]
-    local curtime, paramcount, fields = defs
+    local defs = defsfor(T)
     local olddefs = getfield(o, :info)[]
-    olddefs.world == curtime &&
+    olddefs.world == defs.world &&
         return false
     getfield(o, :info)[] = defs
     # get type for old struct's new properties
-    local raw_prop_type = property_types(T, T.parameters[1:paramcount]...)
+    local raw_prop_type = property_types(T, T.parameters[1:defs.paramcount]...)
     local prop_types = (; zip(raw_prop_type.parameters[1], raw_prop_type.parameters[2].parameters)...)
     local oldfields = getfield(o, :properties)[]
 
-    getfield(o, :properties)[] = (; (name => updatefield(o, type, fields[name], oldfields)
+    getfield(o, :properties)[] = (; (name => updatefield(o, type, defs.fields[name], oldfields)
                                      for (name, type) in pairs(prop_types))...)
     @info "Warning, T has changed"
     return true
@@ -446,7 +456,7 @@ function firstparam(method)
 end
 
 function cleanup_struct(t::Type, constructor)
-    local info = DEFS[nameof(t)]
+    local info = defsfor(t)
     local the_methods = collect(methods(t))
 
     if length(the_methods) >= 1
