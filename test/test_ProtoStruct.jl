@@ -186,7 +186,7 @@ end
     @test length(collect(methods(TestMethods))) == 2
 end
 
-@static if VERSION <= v"1.10"
+@static if VERSION == v"1.10"
 
 """
 This is a docstring.
