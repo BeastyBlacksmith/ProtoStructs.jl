@@ -87,6 +87,9 @@ end
     @test tm.F == 8 && tm.G == 2.0
     @test_throws MethodError tm.F = "2"
     @test propertynames(tm) == (:F, :G)
+    # value conversion
+    tm.G = 8
+    @test tm.G == 8.0
 end
 
 abstract type AbstractMutation end
@@ -183,6 +186,8 @@ end
     @test length(collect(methods(TestMethods))) == 2
 end
 
+@static if VERSION <= v"1.10"
+
 """
 This is a docstring.
 """
@@ -193,6 +198,8 @@ end
 @testset "Docstring" begin
     @test string(@doc DocTestMe) == "This is a docstring.\n"
 end
+    
+end
 
 @proto @kwdef struct A{T}
     x::Array{T} = T[]
@@ -201,6 +208,10 @@ end
 a = A{Int}()
 
 @test a.x == []
+
+a = A(; x = Int64[])
+
+@test typeof(a).parameters[1] == Int64
 
 @proto @kwdef struct A{T}
     x::Array{T} = T[]
@@ -212,7 +223,9 @@ end
 @test A(; x = ["hello"]).x == ["hello"]
 
 @proto @kwdef struct A{T}
-    y::Int = 3
+    y::Float64 = 3
 end
 
 @test_throws ErrorException a.x
+@test a.y == 3.0
+@test A{:florp}(;y = Int(1)).y === 1.0

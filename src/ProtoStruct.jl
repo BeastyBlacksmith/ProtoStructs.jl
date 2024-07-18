@@ -3,8 +3,9 @@ const revise_uuid = Base.UUID("295af30f-e4ad-537b-8983-00126c2a3abe")
 using Base: nothing_sentinel
 const revise_pkgid = Base.PkgId(revise_uuid, "Revise")
 
+const ProtoInfo = @NamedTuple{world::UInt64, paramcount::Int, fields::NamedTuple}
 "Definitions of proto structs so we can upgrade instances on demand"
-const DEFS = Dict{Symbol, @NamedTuple{world::UInt64, paramcount::Int, fields::NamedTuple}}()
+const DEFS = Dict{Symbol, ProtoInfo}()
 
 function checkrev()
     revise_pkgid in keys(Base.loaded_modules) || return false 
@@ -14,6 +15,40 @@ function checkrev()
     d in keys(watched_files) || return false
     trackedfiles = watched_files[d].trackedfiles
     return f in keys(trackedfiles)
+end
+
+# Base._kwdef! is not available in 1.11
+function local_kwdef!(expr, params, calls)
+    for (i, ex) in enumerate(expr.args)
+        ex isa LineNumberNode && continue
+        isconst = ex isa Expr && ex.head == :const
+        if isconst
+            ex = ex.args[1]
+        end
+        name = ex
+        if name isa Expr && name.head == :(=)
+            name = name.args[1]
+        end
+        if name isa Expr && name.head == :(::)
+            name = name.args[1]
+        end
+        if !(name isa Symbol)
+            error("ProtoStructs cannot handle struct field $ex")
+        end
+        if ex isa Expr && ex.head == :(=)
+            # remove assignment from expr
+            newexpr = ex.args[1]
+            push!(params, Expr(:kw, name, ex.args[2]))
+        else
+            newexpr = ex
+            push!(params, name)
+        end
+        if isconst
+            newexpr = Expr(:const, newexpr)
+        end
+        expr.args[i] = newexpr
+        push!(calls, name)
+    end
 end
 
 macro proto(expr)
@@ -99,9 +134,12 @@ function _proto(expr)
     const_field_names = [info.name for info in field_info if info.isconst]
 
     if ismutable
+        base_field_types = :(Tuple{$(getindex.(values(field_info), :type)...)})
         field_types = :(Tuple{$((info.isconst ? :($(info.type)) :
             :(Base.RefValue{$(info.type)})
                                  for info in field_info)...)})
+        fields_with_ref = (x in const_field_names ? :($x=$x) : (:($x=Ref($x)))
+                           for x in field_names)
     else
         field_types = :(Tuple{$(getindex.(values(field_info), :type)...)})
     end
@@ -117,16 +155,7 @@ function _proto(expr)
 
     params_ex = Expr(:parameters)
     call_args = Any[]
-
-    Base._kwdef!(expr.args[3], params_ex.args, call_args)
-
-    # remove escapes
-    params_ex.args = map(params_ex.args) do ex
-        if ex isa Symbol return ex end
-        ex.args[2] = ex.args[2].args[1]
-        ex
-    end
-
+    local_kwdef!(expr.args[3], params_ex.args, call_args)
     default_params = [Symbol("P", i) for i in 1:15]
     N_any_params = length(default_params) - length(type_parameter_names)
     N_any_params <= 0 && error("The number of parameters of the proto struct is too high")
@@ -138,74 +167,60 @@ function _proto(expr)
           for ((name, type, isconst), (hasdefault, default)) in
               zip(field_info, getdefault.(params_ex.args)))...,
          )
-    world = Base.get_world_counter()
+    world = UInt64(Base.get_world_counter())
     UNIQ = gensym()
 
     ex = if ismutable
             quote
                 if !@isdefined $name
                     Base.@__doc__ struct $name{$(default_params...)} <: $abstract_type
-                        world::Ref{UInt64}
+                        info::Ref{$ProtoStructs.ProtoInfo}
                         properties::Ref{NamedTuple}
                     end
                 else
                     if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
                         error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
                     end
-                    the_methods = collect(methods($name))
-                    if length(the_methods) >= 1
-                        Base.delete_method(the_methods[1])
-                    end
-                    if length(the_methods) >= 2
-                        Base.delete_method(the_methods[2])
-                    end
+                    $ProtoStructs.cleanup_struct($name, $(Symbol("new_$name")))
                 end
 
-                function $name($(fields...)) where {$(type_parameters...)}
-                    v = (; $((Expr(:kw, arg,
-                        if arg ∈ const_field_names
-                            :(convert($type, $arg))
-                        else
-                            :(Base.Ref(convert($(field_info[arg].type), $arg)))
-                        end
-                    )
-                              for (type, arg) in zip(
-                                  field_types.args[2:end],
-                                  field_names,))...))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
+                function $(Symbol("new_$name"))($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names}(($(fields_with_ref...),))
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
                 end
 
-                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
-                    v = (; $((Expr(:kw, arg,
-                        if arg ∈ const_field_names
-                            :(convert($type, $arg))
-                        else
-                            :(Base.Ref(convert($(field_info[arg].type), $arg)))
-                        end
-                    )
-                              for (type, arg) in zip(
-                                  field_types.args[2:end],
-                                  field_names,))...))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
+                function $name($(field_names...))
+                    local prop_types = $ProtoStructs.property_types($name, $((:Any for _ in 1:length(type_parameters))...)).parameters[2].parameters
+                    # call new_NAME so it can infer the type parameters
+                    return $(Symbol("new_$name"))( 
+                        $((:($ProtoStructs.convert_field($name, $arg, prop_types[$i]))
+                         for (i, arg) in enumerate(field_names))...))
                 end
 
-                function $name($params_ex)
-                    return $name($(call_args...))
+                function $name{$(type_parameter_names...)}($(field_names...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(
+                        (info.isconst ? :($ProtoStructs.convert_field($name, $(info.name), $type)) :
+                            :(Ref{$type}($ProtoStructs.convert_field($name, $(info.name), $type)))
+                         for (type, info) in zip(base_field_types.args[2:end], field_info))...),))
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                end
+
+                function $name($params_ex) where {$(type_parameters...)}
+                    $name($(call_args...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
 
-                $((:(function $ProtoStructs.default_for(::Type{$UNIQ}, ::Type{Val{$(info.name)}}) where {$UNIQ <: $name, $(info.name)}
-                       local fieldtypes = $ProtoStructs.property_types($name, $([Any for i in type_parameter_names]...))
-                           
-                         $(info.hasdefault ? info.default : nothing)
-                   end)
-                   for info in field_info)...)
+                function $ProtoStructs.default_for(::$name{$(type_parameter_names...)}, field::Symbol) where {$(type_parameter_names...)}
+                    return (;
+                            $((Expr(:kw, p.args[1], p.args[2]) for p in params_ex.args if !(p isa Symbol))...)
+                            )[field]
+                end
 
                 function $ProtoStructs.property_types(::Type{$UNIQ}, $(type_parameter_names...)) where {$UNIQ <: $name}
-                    return NamedTuple{$field_names, $field_types}
+                    return NamedTuple{$field_names, $base_field_types}
                 end
 
                 function Base.getproperty(o::$name, s::Symbol)
@@ -250,52 +265,54 @@ function _proto(expr)
             quote
                 if !@isdefined $name
                     Base.@__doc__ struct $name{$(default_params...)} <: $abstract_type
-                        world::Ref{UInt64}
+                        info::Ref{$ProtoStructs.ProtoInfo}
                         properties::Ref{NamedTuple}
                     end
                 else
                     if ($abstract_type != Any) && ($abstract_type != Base.supertype($name))
                         error("The supertype of a proto struct is not redefinable. Please restart your julia session.")
                     end
-                    the_methods = collect(methods($name))
-                    if length(the_methods) >= 1
-                        Base.delete_method(the_methods[1])
-                    end
-                    if length(the_methods) >= 2
-                        Base.delete_method(the_methods[2])
-                    end
+                    $ProtoStructs.cleanup_struct($name, $(Symbol("new_$name")))
                 end
 
-                function $name($(fields...)) where {$(type_parameters...)}
-                    v = (; $((Expr(:kw, arg, :(convert($type, $arg)))
-                              for (type, arg) in zip(
-                                  field_types.args[2:end],
-                                  field_names,))...))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
+                function $(Symbol("new_$name"))($(fields...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(field_names...),))
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
                 end
 
-                function $name{$(type_parameter_names...)}($(fields...)) where {$(type_parameters...)}
-                    v = (; $((Expr(:kw, arg, :(convert($type, $arg)))
-                              for (type, arg) in zip(
-                                  field_types.args[2:end],
-                                  field_names,))...))
-                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($world), v)
+                function $name($(field_names...))
+                    local prop_types = $ProtoStructs.property_types($name, $((:Any for _ in 1:length(type_parameters))...)).parameters[2].parameters
+                    # call new_NAME so it can infer the type parameters
+                    return $(Symbol("new_$name"))(
+                        $((:($ProtoStructs.convert_field($name, $arg, prop_types[$i]))
+                         for (i, arg) in enumerate(field_names))...))
                 end
 
-                function $name($params_ex)
-                    return $name($(call_args...))
+                function $name{$(type_parameter_names...)}($(field_names...)) where {$(type_parameters...)}
+                    v = NamedTuple{$field_names, $field_types}(($(
+                        (:($ProtoStructs.convert_field($name, $arg, $type))
+                         for (type, arg) in zip(field_types.args[2:end], field_names))...),))
+                    return $name{$(type_parameter_names...), $(any_params...)}(Ref($ProtoStructs.DEFS[$(QuoteNode(name))]), v)
+                end
+
+                function $name($params_ex) where {$(type_parameters...)}
+                    $name($(call_args...))
                 end
 
                 function $name{$(type_parameter_names...)}($params_ex) where {$(type_parameters...)}
                     $name{$(type_parameter_names...)}($(call_args...))
                 end
 
-                $((:(function $ProtoStructs.default_for(::Type{$UNIQ}, ::Type{Val{$(info.name)}}) where {$UNIQ <: $name, $(info.name)}
-                       local fieldtypes = $ProtoStructs.property_types($name, $([Any for i in type_parameter_names]...))
-                           
-                         $(info.hasdefault ? info.default : nothing)
-                   end)
-                   for info in field_info)...)
+                function $ProtoStructs.default_for(::$name{$(type_parameter_names...)}, field::Symbol) where {$(type_parameter_names...)}
+                    return (;
+                            $((Expr(:kw, p.args[1], p.args[2]) for p in params_ex.args if !(p isa Symbol))...)
+                            )[field]
+                end
+
+                $((:(function $ProtoStructs.convert_field(::Type{$UNIQ}, value::$(info.type), target::Type) where {$UNIQ <: $name, $(type_parameters...)}
+                         value
+                    end)
+                  for info in field_info)...)
 
                 function $ProtoStructs.property_types(::Type{$UNIQ}, $(type_parameter_names...)) where {$UNIQ <: $name}
                     return NamedTuple{$field_names, $field_types}
@@ -324,20 +341,12 @@ function _proto(expr)
                 $ProtoStructs.DEFS[$(QuoteNode(name))] =
                     (;
                      world=$world,
-                     paramcount=$(length(type_parameter_names)),
+                     paramcount=$(length(type_parameters)),
                      fields=$(runtime_field_info(field_info)),
                      )
             end
         end
     return ex
-end
-
-function cvt(info, arg, params)
-    if info[arg].type ∈ params
-        return arg
-    else
-        return :(convert($(info[arg].type), $arg))
-    end
 end
 
 function runtime_field_info(info)
@@ -350,10 +359,6 @@ function runtime_field_info(info)
         ))
 end
 
-protofieldtype(type, params) = type ∈ params ? findfirst(==(type), params) : type
-
-type_params(names) = :((; $((:($name = $name) for name in names)...) ))
-
 function getdefault(ex)
     ex isa Expr && ex.head == :kw &&
         return true, ex.args[2]
@@ -365,19 +370,13 @@ end
 
 function property_types end
 
-function default_for(::T, field::Symbol) where {T}
-    return default_for(T, field)
-end
-
-function default_for(::Type{T}, field::Symbol) where {T}
-    return default_for(T, Val{field})
-end
-
 function updateproto(o::T) where {T}
-    local curtime, paramcount, fields = DEFS[nameof(T)]
-    getfield(o, :world)[] == curtime &&
+    local defs = DEFS[nameof(T)]
+    local curtime, paramcount, fields = defs
+    local olddefs = getfield(o, :info)[]
+    olddefs.world == curtime &&
         return false
-    getfield(o, :world)[] = curtime
+    getfield(o, :info)[] = defs
     # get type for old struct's new properties
     local raw_prop_type = property_types(T, T.parameters[1:paramcount]...)
     local prop_types = (; zip(raw_prop_type.parameters[1], raw_prop_type.parameters[2].parameters)...)
@@ -389,13 +388,15 @@ function updateproto(o::T) where {T}
     return true
 end
 
+function default_for end
+
 """
 newtype contains the fully instantiated type for this struct
 """
-function updatefield(::T, newtype, info, oldfields) where {T}
+function updatefield(o, newtype, info, oldfields)
     local err = ""
     local orig_type = newtype
-    local default = default_for(T, info.name)
+    local default = default_for(o, info.name)
 
     if !info.isconst
         newtype = Ref{newtype}
@@ -434,3 +435,30 @@ updatevalue(newtype, value) = convert(newtype, value)
 updatevalue(::Type{Ref{T}}, value::Ref{U}) where {T, U} = Ref{T}(updatevalue(T, value[]))
 updatevalue(::Type{T}, value::Ref{U}) where {T, U} = updatevalue(T, value[])
 updatevalue(::Type{Ref{T}}, value::U) where {T, U} = Ref{T}(updatevalue(T, value))
+
+function convert_field(_, value, target::Type)
+    convert(target, value)
+end
+
+function firstparam(method)
+    local sig = method.sig
+    sig isa UnionAll ? Nothing : sig.parameters[1]
+end
+
+function cleanup_struct(t::Type, constructor)
+    local info = DEFS[nameof(t)]
+    local the_methods = collect(methods(t))
+
+    if length(the_methods) >= 1
+        Base.delete_method(the_methods[1])
+    end
+    if length(the_methods) >= 2
+        Base.delete_method(the_methods[2])
+    end
+    local anys = (Any for _ in 1:info.paramcount)
+    Base.delete_method.([
+        methods(property_types, (Type{t}, anys...))...,
+        [m for m in methods(convert_field, (Type{t}, Any, Any)) if firstparam(m) <: t]...,
+        methods(constructor)...,
+    ])
+end
