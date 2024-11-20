@@ -111,11 +111,12 @@ function _proto(expr)
     end
 
     params_ex = Expr(:parameters)
-    call_args = Any[]
+    call_args = Any[] # aka defvals
 
-    Base._kwdef!(expr.args[3], params_ex.args, call_args)
+    _kwdef!(expr.args[3], params_ex.args, call_args)
 
     # remove escapes
+    
     params_ex.args = map(params_ex.args) do ex
         if ex isa Symbol return ex end
         ex.args[2] = ex.args[2].args[1]
@@ -255,3 +256,52 @@ function _proto(expr)
     return ex
 end
 
+function _kwdef!(blk, params_args, call_args)
+    for i in eachindex(blk.args)
+        ei = blk.args[i]
+        if ei isa Symbol
+            #  var
+            push!(params_args, ei)
+            push!(call_args, ei)
+        elseif ei isa Expr
+            is_atomic = ei.head === :atomic
+            ei = is_atomic ? first(ei.args) : ei # strip "@atomic" and add it back later
+            is_const = ei.head === :const
+            ei = is_const ? first(ei.args) : ei # strip "const" and add it back later
+            # Note: `@atomic const ..` isn't valid, but reconstruct it anyway to serve a nice error
+            if ei isa Symbol
+                # const var
+                push!(params_args, ei)
+                push!(call_args, ei)
+            elseif ei.head === :(=)
+                lhs = ei.args[1]
+                if lhs isa Symbol
+                    #  var = defexpr
+                    var = lhs
+                elseif lhs isa Expr && lhs.head === :(::) && lhs.args[1] isa Symbol
+                    #  var::T = defexpr
+                    var = lhs.args[1]
+                else
+                    # something else, e.g. inline inner constructor
+                    #   F(...) = ...
+                    continue
+                end
+                defexpr = ei.args[2]  # defexpr
+                push!(params_args, Expr(:kw, var, esc(defexpr)))
+                push!(call_args, var)
+                lhs = is_const ? Expr(:const, lhs) : lhs
+                lhs = is_atomic ? Expr(:atomic, lhs) : lhs
+                blk.args[i] = lhs # overrides arg
+            elseif ei.head === :(::) && ei.args[1] isa Symbol
+                # var::Typ
+                var = ei.args[1]
+                push!(params_args, var)
+                push!(call_args, var)
+            elseif ei.head === :block
+                # can arise with use of @static inside type decl
+                _kwdef!(ei, params_args, call_args)
+            end
+        end
+    end
+    blk
+end

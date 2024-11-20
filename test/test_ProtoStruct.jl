@@ -1,4 +1,5 @@
 using ProtoStructs, Test
+using REPL # needs to be loaded in julia >= 1.11 to let docstring test pass
 
 @proto struct SimpleTestMe
     A::Int
