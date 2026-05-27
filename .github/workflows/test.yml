@@ -28,6 +28,7 @@ jobs:
           - os: macos-latest
             julia-version: '1'
             julia-arch: arm64
+            experimental: true
 
     steps:
       - uses: actions/checkout@v6
